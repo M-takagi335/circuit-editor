@@ -611,7 +611,7 @@ function compSVG(type, color=currentColor){
       <line x1="-5" y1="-13" x2="-5" y2="13" stroke="${color}" stroke-width="2.5"/>
       <rect x="3" y="-13" width="5" height="26" fill="${color}"/>
       <line x1="8" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${sw}"/>
-      <text x="-8" y="-15" font-size="9" fill="${color}" text-anchor="middle">+</text>`,
+      <text x="-8" y="-11" font-size="9" fill="${color}" text-anchor="middle">+</text>`,
     inductor:`
       <line x1="-43" y1="0" x2="-34" y2="0" stroke="${color}" stroke-width="${sw}"/>
       <path d="M-34 0 A8 8 0 0 1 -18 0 A8 8 0 0 1 -2 0 A8 8 0 0 1 14 0 A8 8 0 0 1 30 0" fill="none" stroke="${color}" stroke-width="${sw}"/>
@@ -728,7 +728,7 @@ function compSVG(type, color=currentColor){
       <circle cx="0" cy="10" r="4" fill="none" stroke="${color}" stroke-width="1.2"/>
       <circle cx="12" cy="10" r="4" fill="none" stroke="${color}" stroke-width="1.2"/>`,
   };
-  return T[type] || `<rect x="-20" y="-15" width="40" height="30" fill="white" stroke="${color}" stroke-width="1.5"/>`;
+  return T[type] || `<rect x="-20" y="-11" width="40" height="30" fill="white" stroke="${color}" stroke-width="1.5"/>`;
 }
 
 // ──────────────────────────────────────────
@@ -2500,6 +2500,8 @@ canvas.addEventListener('mousedown', e=>{
   const w=addShape('jump', false, p.x, p.y);
   selectedIds.clear(); selectedWireId=null; selectedIds.add('shape:'+w.id);
   renderAll(); showProps(); runChecks();
+  // 浮き配線も、配置したら通常の選択モードへ戻す。
+  try{ setTool('select'); }catch(_){ tool = 'select'; }
 }, true);
 
 function showWireProps(w){
@@ -6340,7 +6342,7 @@ renderAll();
         <line x1="-5" y1="-13" x2="-5" y2="13" stroke="${sc}" stroke-width="2.5"/>
         <rect x="3" y="-13" width="5" height="26" fill="${sc}"/>
         <line x1="8" y1="0" x2="25" y2="0" stroke="${sc}" stroke-width="${sw}"/>
-        <text x="-8" y="-15" font-size="9" fill="${sc}" text-anchor="middle">+</text>`;
+        <text x="-8" y="-11" font-size="9" fill="${sc}" text-anchor="middle">+</text>`;
     }
     if(type === 'inductor'){
       // 両端を±45にして、描画線も端子まで届かせる。GRID=5のため端子が必ずグリッド上に来る。
@@ -9188,5 +9190,242 @@ body.wire-mode #canvas * {
 })();
 </script>
 
+
+<script>
+// ===== v18 patch: jumpwire returns to select + voltage source as two-line battery symbol =====
+(function(){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  // 「電圧源」は円形の直流電源と区別し、長短二本線の電池記号にする。
+  try{
+    if(window.DEFS && DEFS.vsource){
+      DEFS.vsource = {
+        name:'電圧源',
+        w:36,
+        h:70,
+        terms:[{x:0,y:-35,id:'+'},{x:0,y:35,id:'-'}],
+        defVal:'',
+        pre:'V'
+      };
+    }
+  }catch(e){ console.warn('vsource definition patch failed', e); }
+
+  const previousCompSVGV18 = window.compSVG || compSVG;
+  window.compSVG = compSVG = function(type, color=currentColor){
+    if(type === 'vsource'){
+      const c = color || currentColor || '#1a1a1a';
+      const lw = (window.circuitLineWidth != null ? Number(window.circuitLineWidth) : 1.6) || 1.6;
+      return `
+        <line x1="0" y1="-35" x2="0" y2="-8" stroke="${c}" stroke-width="${lw}" stroke-linecap="round"/>
+        <line x1="-16" y1="-8" x2="16" y2="-8" stroke="${c}" stroke-width="${Math.max(lw * 1.35, lw + 0.4)}" stroke-linecap="round"/>
+        <line x1="-9" y1="4" x2="9" y2="4" stroke="${c}" stroke-width="${Math.max(lw * 1.1, lw)}" stroke-linecap="round"/>
+        <line x1="0" y1="4" x2="0" y2="35" stroke="${c}" stroke-width="${lw}" stroke-linecap="round"/>
+        <text x="20" y="-11" font-size="10" fill="${c}" text-anchor="middle" font-family="'Times New Roman',serif">+</text>
+      `;
+    }
+    return previousCompSVGV18(type, color);
+  };
+
+  function updateVsourcePaletteIcon(){
+    const item = document.getElementById('pal-vsource');
+    if(!item) return;
+    const old = item.querySelector('svg');
+    if(!old) return;
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'pal-icon');
+    svg.setAttribute('viewBox', '-24 -38 48 76');
+    svg.innerHTML = window.compSVG('vsource', '#333');
+    old.replaceWith(svg);
+  }
+
+  // 浮き配線は2クリックで1本置いた直後に選択へ戻す。
+  let pendingJumpwireFinish = false;
+  document.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    if(tool !== 'jumpwire') return;
+    pendingJumpwireFinish = !!wireStart;
+  }, true);
+
+  const prevRenderAllV18 = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    prevRenderAllV18();
+    updateVsourcePaletteIcon();
+    if(pendingJumpwireFinish && tool === 'jumpwire' && !wireStart){
+      pendingJumpwireFinish = false;
+      try{ setTool('select'); }catch(e){ tool = 'select'; }
+    }
+  };
+
+  try{
+    updateVsourcePaletteIcon();
+    renderAll();
+    showProps();
+    runChecks();
+  }catch(e){ console.error(e); }
+})();
+</script>
+
+
+<script id="linewidth-capacitor-diode-link-fix">
+// 線幅変更時に、コンデンサの極板・ダイオード/LEDのカソード線も同じ線幅へ連動させる。
+(function(){
+  function lw(){
+    if(typeof window.getCircuitLineWidth === 'function') return window.getCircuitLineWidth();
+    return Math.max(0.5, Math.min(10, Number(window.circuitLineWidth) || 1.6));
+  }
+  function col(color){ return color || window.currentColor || currentColor || '#6b7280'; }
+
+  const prevCompSVGLineLink = window.compSVG || compSVG;
+  window.compSVG = compSVG = function(type, color){
+    const c = col(color);
+    const sw = lw();
+    const diodeTri = Math.max(0.8, sw * 0.35);
+
+    if(type === 'capacitor'){
+      return `
+        <line x1="-22" y1="0" x2="-5" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="-5" y1="-13" x2="-5" y2="13" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="5" y1="-13" x2="5" y2="13" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="5" y1="0" x2="22" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`;
+    }
+
+    if(type === 'electrolytic'){
+      const plateW = Math.max(3, sw * 2.2);
+      return `
+        <line x1="-22" y1="0" x2="-5" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="-5" y1="-13" x2="-5" y2="13" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <rect x="${5 - plateW/2}" y="-13" width="${plateW}" height="26" fill="${c}"/>
+        <line x1="${5 + plateW/2}" y1="0" x2="22" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <text x="-8" y="-15" font-size="9" fill="${c}" text-anchor="middle">+</text>`;
+    }
+
+    if(type === 'diode'){
+      return `
+        <line x1="-22" y1="0" x2="-10" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <polygon points="-10,-11 -10,11 10,0" fill="${c}" stroke="${c}" stroke-width="${diodeTri}" stroke-linejoin="round"/>
+        <line x1="10" y1="-11" x2="10" y2="11" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="10" y1="0" x2="22" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>`;
+    }
+
+    if(type === 'led'){
+      const arrowSw = Math.max(0.8, sw * 0.75);
+      return `
+        <line x1="-22" y1="0" x2="-10" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <polygon points="-10,-11 -10,11 10,0" fill="${c}" stroke="${c}" stroke-width="${diodeTri}" stroke-linejoin="round"/>
+        <line x1="10" y1="-11" x2="10" y2="11" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="10" y1="0" x2="22" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="12" y1="-14" x2="20" y2="-22" stroke="${c}" stroke-width="${arrowSw}" stroke-linecap="round"/>
+        <line x1="18" y1="-10" x2="26" y2="-18" stroke="${c}" stroke-width="${arrowSw}" stroke-linecap="round"/>
+        <polygon points="16,-22 20,-22 20,-18" fill="${c}"/>
+        <polygon points="22,-18 26,-18 26,-14" fill="${c}"/>`;
+    }
+
+    return prevCompSVGLineLink(type, color);
+  };
+
+  function relinkExistingPartStrokes(){
+    const sw = lw();
+    document.querySelectorAll('#comps-layer [data-cid]').forEach(g => {
+      const id = g.getAttribute('data-cid');
+      const comp = (window.components || components || []).find(x => x.id === id);
+      if(!comp || !['capacitor','electrolytic','diode','led'].includes(comp.type)) return;
+      g.querySelectorAll('line,path,rect,circle,ellipse,polygon').forEach(el => {
+        const stroke = (el.getAttribute('stroke') || '').toLowerCase();
+        if(stroke && stroke !== 'none' && stroke !== 'transparent' && stroke !== '#3b82f6'){
+          el.setAttribute('stroke-width', String(sw));
+        }
+      });
+    });
+  }
+
+  const prevSetCircuitLineWidthLinked = window.setCircuitLineWidth;
+  if(prevSetCircuitLineWidthLinked){
+    window.setCircuitLineWidth = setCircuitLineWidth = function(value, skipSaveState){
+      prevSetCircuitLineWidthLinked(value, skipSaveState);
+      relinkExistingPartStrokes();
+      if(typeof renderAll === 'function') renderAll();
+    };
+  }
+
+  const prevExportSvgMarkupLinked = window.exportSvgMarkup;
+  if(prevExportSvgMarkupLinked){
+    window.exportSvgMarkup = exportSvgMarkup = function(){
+      const out = prevExportSvgMarkupLinked();
+      const sw = lw();
+      out.svg = out.svg
+        .replace(/stroke-width="2\.5"/g, `stroke-width="${sw}"`)
+        .replace(/stroke-width="2"/g, `stroke-width="${sw}"`)
+        .replace(/stroke-width="1\.2"/g, `stroke-width="${sw}"`);
+      return out;
+    };
+  }
+
+  try{
+    relinkExistingPartStrokes();
+    if(typeof renderAll === 'function') renderAll();
+  }catch(e){ console.error('line width link patch failed', e); }
+})();
+</script>
+
 </body>
 </html>
+<script id="junction-single-place-vsource-noplus-fix">
+// 結線点も1つ置いたら選択へ戻す。電圧源の電池記号から + 表示を外し、二本線の間隔を少し狭くする。
+(function(){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  let pendingJunctionFinish = false;
+  document.addEventListener('mousedown', function(e){
+    if(e.button !== 0) return;
+    if(typeof tool !== 'undefined' && tool === 'junction') pendingJunctionFinish = true;
+  }, true);
+
+  const prevCompSVGNoPlus = window.compSVG || compSVG;
+  window.compSVG = compSVG = function(type, color){
+    if(type === 'vsource'){
+      const c = color || window.currentColor || currentColor || '#1a1a1a';
+      const lw = (typeof window.getCircuitLineWidth === 'function')
+        ? window.getCircuitLineWidth()
+        : ((window.circuitLineWidth != null ? Number(window.circuitLineWidth) : 1.6) || 1.6);
+      const mainW = Math.max(lw * 1.35, lw + 0.4);
+      const subW = Math.max(lw * 1.1, lw);
+      return `
+        <line x1="0" y1="-35" x2="0" y2="-5" stroke="${c}" stroke-width="${lw}" stroke-linecap="round"/>
+        <line x1="-16" y1="-5" x2="16" y2="-5" stroke="${c}" stroke-width="${mainW}" stroke-linecap="round"/>
+        <line x1="-9" y1="3" x2="9" y2="3" stroke="${c}" stroke-width="${subW}" stroke-linecap="round"/>
+        <line x1="0" y1="3" x2="0" y2="35" stroke="${c}" stroke-width="${lw}" stroke-linecap="round"/>
+      `;
+    }
+    return prevCompSVGNoPlus(type, color);
+  };
+
+  function refreshVsourcePaletteIcon(){
+    const item = document.getElementById('pal-vsource');
+    if(!item) return;
+    const old = item.querySelector('svg');
+    if(!old) return;
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'pal-icon');
+    svg.setAttribute('viewBox', '-24 -38 48 76');
+    svg.innerHTML = window.compSVG('vsource', '#333');
+    old.replaceWith(svg);
+  }
+
+  const prevRenderAllJunctionFix = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    prevRenderAllJunctionFix();
+    refreshVsourcePaletteIcon();
+    if(pendingJunctionFinish && typeof tool !== 'undefined' && tool === 'junction'){
+      pendingJunctionFinish = false;
+      try{ setTool('select'); }catch(e){ tool = 'select'; }
+    }
+  };
+
+  try{
+    refreshVsourcePaletteIcon();
+    renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error(e); }
+})();
+</script>
