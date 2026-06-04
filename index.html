@@ -5812,5 +5812,154 @@ renderAll();
 })();
 </script>
 
+
+<script>
+// ===== patch: include wires in drag/range selection =====
+(function(){
+  function rectFromPoints(a, b){
+    return {
+      x1: Math.min(a.x, b.x),
+      y1: Math.min(a.y, b.y),
+      x2: Math.max(a.x, b.x),
+      y2: Math.max(a.y, b.y)
+    };
+  }
+
+  function pointInRect(x, y, r){
+    return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
+  }
+
+  function rangesOverlap(a1, a2, b1, b2){
+    const amin = Math.min(a1, a2), amax = Math.max(a1, a2);
+    const bmin = Math.min(b1, b2), bmax = Math.max(b1, b2);
+    return Math.max(amin, bmin) <= Math.min(amax, bmax);
+  }
+
+  function segmentIntersectsRect(x1, y1, x2, y2, r){
+    // Endpoint inside the selection rectangle.
+    if(pointInRect(x1, y1, r) || pointInRect(x2, y2, r)) return true;
+
+    // Fast reject by bounding boxes.
+    if(Math.max(x1, x2) < r.x1 || Math.min(x1, x2) > r.x2 ||
+       Math.max(y1, y2) < r.y1 || Math.min(y1, y2) > r.y2) return false;
+
+    // Most circuit wires are horizontal/vertical orthogonal segments.
+    if(y1 === y2) return y1 >= r.y1 && y1 <= r.y2 && rangesOverlap(x1, x2, r.x1, r.x2);
+    if(x1 === x2) return x1 >= r.x1 && x1 <= r.x2 && rangesOverlap(y1, y2, r.y1, r.y2);
+
+    // Fallback for any future diagonal segment.
+    const edges = [
+      [r.x1, r.y1, r.x2, r.y1],
+      [r.x2, r.y1, r.x2, r.y2],
+      [r.x2, r.y2, r.x1, r.y2],
+      [r.x1, r.y2, r.x1, r.y1]
+    ];
+    return edges.some(e => linesIntersect(x1, y1, x2, y2, e[0], e[1], e[2], e[3]));
+  }
+
+  function linesIntersect(ax, ay, bx, by, cx, cy, dx, dy){
+    function ccw(px, py, qx, qy, rx, ry){ return (ry - py) * (qx - px) > (qy - py) * (rx - px); }
+    return ccw(ax, ay, cx, cy, dx, dy) !== ccw(bx, by, cx, cy, dx, dy) &&
+           ccw(ax, ay, bx, by, cx, cy) !== ccw(ax, ay, bx, by, dx, dy);
+  }
+
+  function wireSegments(w){
+    if(w.x1 === w.x2 || w.y1 === w.y2){
+      return [[w.x1, w.y1, w.x2, w.y2]];
+    }
+    const midX = w.x1 + (w.x2 - w.x1) * 0.5;
+    return [
+      [w.x1, w.y1, midX, w.y1],
+      [midX, w.y1, midX, w.y2],
+      [midX, w.y2, w.x2, w.y2]
+    ];
+  }
+
+  function wireIntersectsRect(w, r){
+    return wireSegments(w).some(seg => segmentIntersectsRect(seg[0], seg[1], seg[2], seg[3], r));
+  }
+
+  function addWiresInSelectionBox(){
+    if(tool !== 'select' || !selBoxStart || !selBoxCur) return;
+    const r = rectFromPoints(selBoxStart, selBoxCur);
+    if(r.x2 - r.x1 <= 5 && r.y2 - r.y1 <= 5) return;
+
+    let count = 0;
+    wires.forEach(w => {
+      if(wireIntersectsRect(w, r)){
+        selectedIds.add('wire:' + w.id);
+        count++;
+      }
+    });
+    selectedWireId = count === 1 ? [...selectedIds].find(id => id.startsWith('wire:'))?.slice(5) || null : null;
+  }
+
+  // Capture-phase mouseup runs before the original range-selection handler,
+  // so the original handler can still add components/shapes/text and render once.
+  canvas.addEventListener('mouseup', addWiresInSelectionBox, true);
+
+  const previousDrawWireEl = window.drawWireEl || drawWireEl;
+  window.drawWireEl = drawWireEl = function(w){
+    const g = previousDrawWireEl(w);
+    const isSelected = selectedWireId === w.id || selectedIds.has('wire:' + w.id);
+    if(isSelected){
+      const visiblePath = g.querySelector('path:not([stroke="transparent"])');
+      if(visiblePath){
+        visiblePath.setAttribute('stroke', '#3b82f6');
+        visiblePath.setAttribute('stroke-width', '2.2');
+      }
+    }
+    return g;
+  };
+
+  const previousDeleteSelected = window.deleteSelected || deleteSelected;
+  window.deleteSelected = deleteSelected = function(){
+    const wireIds = [...selectedIds]
+      .filter(id => id.startsWith('wire:'))
+      .map(id => id.slice(5));
+
+    if(wireIds.length){
+      saveState();
+      if(selectedWireId && !wireIds.includes(selectedWireId)) wireIds.push(selectedWireId);
+      wires = wires.filter(w => !wireIds.includes(w.id));
+      selectedIds.forEach(id => { if(id.startsWith('wire:')) selectedIds.delete(id); });
+      selectedWireId = null;
+
+      if(selectedIds.size === 0){
+        renderAll();
+        showProps();
+        runChecks();
+        return;
+      }
+
+      // Continue deleting any non-wire objects that were selected in the same rectangle.
+      const saved = window.saveState;
+      window.saveState = saveState = function(){};
+      try{ previousDeleteSelected(); }
+      finally{ window.saveState = saveState = saved; }
+      return;
+    }
+
+    previousDeleteSelected();
+  };
+
+  const previousShowProps = window.showProps || showProps;
+  window.showProps = showProps = function(){
+    const wireIds = [...selectedIds].filter(id => id.startsWith('wire:'));
+    if(wireIds.length > 1 && selectedIds.size === wireIds.length){
+      document.getElementById('prop-title').textContent = '配線';
+      document.getElementById('prop-sub').textContent = `${wireIds.length}本を選択中`;
+      document.getElementById('prop-body').innerHTML = `
+        <div class="hint">範囲選択した配線をまとめて削除できます。</div>
+        <button class="prop-btn danger" onclick="deleteSelected()">🗑 選択した配線を削除</button>`;
+      return;
+    }
+    previousShowProps();
+  };
+
+  renderAll();
+})();
+</script>
+
 </body>
 </html>
