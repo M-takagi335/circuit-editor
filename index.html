@@ -1041,6 +1041,13 @@ function cancelPlace(){
   updateGhostRotation();
 }
 
+
+function finishPlaceOnMobile(){
+  // PC/スマホ共通: 部品/図形を1つ置いたら、連続配置を終えて通常の選択状態へ戻す。
+  cancelPlace();
+  setTool('select');
+}
+
 function moveGhost(e){
   if(!placingType && !placingShape) return;
   const gs = document.getElementById('ghost-svg');
@@ -1147,6 +1154,7 @@ canvas.addEventListener('mousedown', e => {
     const near = nearestTerminal(pt, 18);
     addComp(placingType, near ? near.x : pt.x, near ? near.y : pt.y, {rotation: placingRotation});
     renderAll(); runChecks();
+    finishPlaceOnMobile();
     return;
   }
 
@@ -1154,6 +1162,7 @@ canvas.addEventListener('mousedown', e => {
     saveState();
     addShape(placingShape.kind, placingShape.filled, pt.x, pt.y, {rotation: placingRotation});
     renderAll(); showProps();
+    finishPlaceOnMobile();
     return;
   }
 
@@ -6439,6 +6448,7 @@ renderAll();
     addComp(placingType, pos.x, pos.y, {rotation: placingRotation});
     renderAll();
     runChecks();
+    finishPlaceOnMobile();
   }, true);
 
   // グリッドはスナップ間隔そのものを最小マスにする。太線は5マスごと。
