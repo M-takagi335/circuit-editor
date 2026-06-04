@@ -1213,6 +1213,7 @@ canvas.addEventListener('mouseup', e => {
         components.forEach(c => { if(c.x>=x1&&c.x<=x2&&c.y>=y1&&c.y<=y2) selectedIds.add(c.id); });
         shapes.forEach(sh => { if(sh.x>=x1&&sh.x<=x2&&sh.y>=y1&&sh.y<=y2) selectedIds.add('shape:'+sh.id); });
         mathLabels.forEach(m => { if(m.x>=x1&&m.x<=x2&&m.y>=y1&&m.y<=y2) selectedIds.add('math:'+m.id); });
+        junctions.forEach(j => { if(j.x>=x1&&j.x<=x2&&j.y>=y1&&j.y<=y2) selectedIds.add('junction:'+j.id); });
         renderAll(); showProps();
       }
     }
@@ -1984,13 +1985,15 @@ function deleteSelected(){
   if(selectedIds.size===0 && !selectedWireId) return;
   saveState();
   if(selectedWireId){ wires = wires.filter(w=>w.id!==selectedWireId); selectedWireId = null; }
-  const compIds=[...selectedIds].filter(id=>!id.startsWith('math:')&&!id.startsWith('shape:'));
+  const compIds=[...selectedIds].filter(id=>!id.startsWith('math:')&&!id.startsWith('shape:')&&!id.startsWith('junction:'));
   const mathIds=[...selectedIds].filter(id=>id.startsWith('math:')).map(id=>id.slice(5));
   const shapeIds=[...selectedIds].filter(id=>id.startsWith('shape:')).map(id=>id.slice(6));
+  const junctionIds=[...selectedIds].filter(id=>id.startsWith('junction:')).map(id=>id.slice(9));
   wires = wires.filter(w=>!compIds.includes(w.c1)&&!compIds.includes(w.c2));
   components = components.filter(c=>!compIds.includes(c.id));
   mathLabels = mathLabels.filter(m=>!mathIds.includes(m.id));
   shapes = shapes.filter(sh=>!shapeIds.includes(sh.id));
+  junctions = junctions.filter(j=>!junctionIds.includes(j.id));
   selectedIds.clear(); renderAll(); showProps(); runChecks();
 }
 function rotateSelected(){
@@ -2044,7 +2047,7 @@ function setMathStyle(key,val){ const id=[...selectedIds][0]; if(!id?.startsWith
 
 function copySelection(){
   if(!selectedIds.size) return;
-  const compIds=[...selectedIds].filter(id=>!id.startsWith('math:')&&!id.startsWith('shape:'));
+  const compIds=[...selectedIds].filter(id=>!id.startsWith('math:')&&!id.startsWith('shape:')&&!id.startsWith('junction:'));
   const mathIds=[...selectedIds].filter(id=>id.startsWith('math:')).map(id=>id.slice(5));
   const shapeIds=[...selectedIds].filter(id=>id.startsWith('shape:')).map(id=>id.slice(6));
   clipboard={components:components.filter(c=>compIds.includes(c.id)).map(c=>({...c})), mathLabels:mathLabels.filter(m=>mathIds.includes(m.id)).map(m=>({...m})), shapes:shapes.filter(sh=>shapeIds.includes(sh.id)).map(sh=>({...sh}))};
@@ -3069,6 +3072,7 @@ renderAll();
   window.setMathMode = function(val){ window.setMathStyle('mode', val); };
   window.setMathWH = function(key,val){ const m = selectedText(); if(!m) return; m[key] = Math.max(key==='w'?40:24, parseInt(val)||0); m.manualSize=true; renderAll(); showProps(); syncInlineEditor(); };
   window.editSelectedTextInPanel = function(){ const m = selectedText(); if(m) beginInlineEditText(m.id); };
+  window.setJunctionProp = function(key,val){ const id=[...selectedIds][0]; if(!id?.startsWith('junction:')) return; const j=junctions.find(x=>x.id===id.slice(9)); if(j){ j[key]=val; renderAll(); showProps(); runChecks(); } };
 
   const oldShowWireProps = window.showWireProps;
   window.showProps = function(){
@@ -3106,10 +3110,19 @@ renderAll();
         <button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`; return;
       }
     }
+    if(selectedIds.size===1){
+      const jidSel=[...selectedIds][0];
+      if(jidSel && jidSel.startsWith('junction:')){
+        const j=junctions.find(x=>x.id===jidSel.slice(9)); if(!j) return;
+        title.textContent='結線点'; sub.textContent=`X:${Math.round(j.x)} / Y:${Math.round(j.y)}`;
+        body.innerHTML=`<div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="${j.color||currentColor||'#6b7280'}" oninput="setJunctionProp('color',this.value)"></div><button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+        return;
+      }
+    }
     // fall back to existing latest UI for wires/components/multi/default
     if(selectedWireId){ const w=wires.find(x=>x.id===selectedWireId); if(w){ return oldShowWireProps(w); } }
     const id=[...selectedIds][0];
-    if(selectedIds.size===1 && id && !id.startsWith('math:') && !id.startsWith('shape:')){
+    if(selectedIds.size===1 && id && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:')){
       const c=components.find(x=>x.id===id); if(c){ const def=DEFS[c.type]; title.textContent=def.name; sub.textContent=c.id;
         body.innerHTML=`<div class="prop-field"><label class="prop-label">参照名</label><input class="prop-input" value="${exportEscape(c.ref||'')}" oninput="setProp('ref',this.value)"></div>
         <div class="prop-field"><label class="prop-label">値</label><input class="prop-input" value="${exportEscape(c.value||'')}" oninput="setProp('value',this.value)"></div>
@@ -3640,8 +3653,10 @@ renderAll();
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j=>{
       const c=document.createElementNS(NS,'circle');
-      c.setAttribute('cx',j.x); c.setAttribute('cy',j.y); c.setAttribute('r','4'); c.setAttribute('fill',j.color||BLACK);
-      c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); saveState(); junctions=junctions.filter(x=>x.id!==j.id); renderAll(); runChecks(); }});
+      const jidSel='junction:'+j.id;
+      c.setAttribute('cx',j.x); c.setAttribute('cy',j.y); c.setAttribute('r',selectedIds.has(jidSel)?'5.5':'4'); c.setAttribute('fill',j.color||BLACK);
+      c.setAttribute('stroke',selectedIds.has(jidSel)?'#3b82f6':'none'); c.setAttribute('stroke-width',selectedIds.has(jidSel)?'2.4':'0'); c.setAttribute('data-jid',j.id);
+      c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); selectedWireId=null; if(ev.shiftKey){ if(selectedIds.has(jidSel)) selectedIds.delete(jidSel); else selectedIds.add(jidSel); } else { selectedIds.clear(); selectedIds.add(jidSel); } renderAll(); showProps(); }});
       document.getElementById('junctions-layer').appendChild(c);
     });
     shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
@@ -4089,8 +4104,10 @@ renderAll();
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j=>{
       const c=document.createElementNS(NS,'circle');
-      c.setAttribute('cx',j.x); c.setAttribute('cy',j.y); c.setAttribute('r','4'); c.setAttribute('fill',j.color||BLACK);
-      c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); saveState(); junctions=junctions.filter(x=>x.id!==j.id); renderAll(); runChecks(); }});
+      const jidSel='junction:'+j.id;
+      c.setAttribute('cx',j.x); c.setAttribute('cy',j.y); c.setAttribute('r',selectedIds.has(jidSel)?'5.5':'4'); c.setAttribute('fill',j.color||BLACK);
+      c.setAttribute('stroke',selectedIds.has(jidSel)?'#3b82f6':'none'); c.setAttribute('stroke-width',selectedIds.has(jidSel)?'2.4':'0'); c.setAttribute('data-jid',j.id);
+      c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); selectedWireId=null; if(ev.shiftKey){ if(selectedIds.has(jidSel)) selectedIds.delete(jidSel); else selectedIds.add(jidSel); } else { selectedIds.clear(); selectedIds.add(jidSel); } renderAll(); showProps(); }});
       document.getElementById('junctions-layer').appendChild(c);
     });
     shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
@@ -7072,7 +7089,7 @@ body.wire-mode #canvas * {
   }
 
   window.saveCircuitFile = saveCircuitFile = function(){
-    const filename = askFileName('circuit.circuit.json', '.circuit.json');
+    const filename = askFileName('circuit.json', '.json');
     if(!filename) return;
     fitAllLabels();
     const data = {version:'circuit-editor-json-v1', components,wires,junctions,mathLabels,shapes,counters:{cid,wid,jid,mid,sid}, view:{viewX,viewY,viewScale}};
@@ -7433,6 +7450,9 @@ body.wire-mode #canvas * {
       }else if(id.startsWith('math:')){
         const m = mathLabels.find(x => x.id === id.slice(5));
         if(m) m.color = color;
+      }else if(id.startsWith('junction:')){
+        const j = junctions.find(x => x.id === id.slice(9));
+        if(j) j.color = color;
       }else{
         const c = components.find(x => x.id === id);
         if(c) c.color = color;
@@ -7679,7 +7699,7 @@ body.wire-mode #canvas * {
 
   const prevSaveCircuitFile = window.saveCircuitFile;
   window.saveCircuitFile = saveCircuitFile = function(){
-    const filename = askFilename('circuit.circuit.json', '.circuit.json');
+    const filename = askFilename('circuit.json', '.json');
     if(!filename) return;
     const data = {version:'circuit-editor-json-v1', components,wires,junctions,mathLabels,shapes,counters:{cid,wid,jid,mid,sid}, view:{viewX,viewY,viewScale}, settings:{circuitLineWidth:getLineWidth()}};
     downloadText(JSON.stringify(data,null,2), 'application/json;charset=utf-8', filename);
@@ -8113,6 +8133,1048 @@ body.wire-mode #canvas * {
       canvasWrap.classList.remove('panning');
     } catch(_) {}
   });
+})();
+</script>
+
+
+<script id="junction-range-selection-patch">
+// 結線点を範囲選択・通常選択の対象にする最終パッチ。
+(function(){
+  const SELECTED_STROKE = '#3b82f6';
+
+  function jidKey(id){ return 'junction:' + id; }
+
+  function patchJunctionElements(){
+    const layer = document.getElementById('junctions-layer');
+    if(!layer || typeof selectedIds === 'undefined') return;
+    layer.querySelectorAll('circle[data-jid]').forEach(oldEl => {
+      const id = oldEl.getAttribute('data-jid');
+      if(!id) return;
+      const key = jidKey(id);
+      const el = oldEl.cloneNode(true); // 既存の「クリックで削除」ハンドラを取り除く
+      const isSelected = selectedIds.has(key);
+      el.setAttribute('r', isSelected ? '5.5' : '4');
+      el.setAttribute('stroke', isSelected ? SELECTED_STROKE : 'none');
+      el.setAttribute('stroke-width', isSelected ? '2.4' : '0');
+      el.style.cursor = 'pointer';
+      el.addEventListener('mousedown', ev => {
+        if(typeof tool !== 'undefined' && tool !== 'select') return;
+        ev.stopPropagation();
+        selectedWireId = null;
+        if(ev.shiftKey){
+          if(selectedIds.has(key)) selectedIds.delete(key);
+          else selectedIds.add(key);
+        }else{
+          selectedIds.clear();
+          selectedIds.add(key);
+        }
+        renderAll();
+        showProps();
+      });
+      oldEl.replaceWith(el);
+    });
+  }
+
+  const previousRenderAll = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    previousRenderAll();
+    patchJunctionElements();
+  };
+
+  const previousShowProps = window.showProps || showProps;
+  window.showProps = showProps = function(){
+    if(selectedIds && selectedIds.size === 1){
+      const id = [...selectedIds][0];
+      if(typeof id === 'string' && id.startsWith('junction:')){
+        const j = junctions.find(x => x.id === id.slice(9));
+        if(j){
+          document.getElementById('prop-title').textContent = '結線点';
+          document.getElementById('prop-sub').textContent = `X:${Math.round(j.x)} / Y:${Math.round(j.y)}`;
+          document.getElementById('prop-body').innerHTML = `
+            <div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="${j.color || currentColor || '#6b7280'}" oninput="setJunctionProp('color',this.value)"></div>
+            <button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+          return;
+        }
+      }
+    }
+    previousShowProps();
+  };
+
+  window.setJunctionProp = function(key, val){
+    const id = selectedIds && [...selectedIds][0];
+    if(typeof id !== 'string' || !id.startsWith('junction:')) return;
+    const j = junctions.find(x => x.id === id.slice(9));
+    if(!j) return;
+    saveState();
+    j[key] = val;
+    renderAll();
+    showProps();
+    runChecks();
+  };
+
+  // 念のため、範囲選択の確定時にも結線点を追加する（既存mouseupより後に実行）。
+  const canvasEl = document.getElementById('canvas');
+  if(canvasEl){
+    canvasEl.addEventListener('mouseup', function(){
+      if(typeof tool === 'undefined' || tool !== 'select' || !selBoxStart || !selBoxCur) return;
+      const x1 = Math.min(selBoxStart.x, selBoxCur.x);
+      const y1 = Math.min(selBoxStart.y, selBoxCur.y);
+      const x2 = Math.max(selBoxStart.x, selBoxCur.x);
+      const y2 = Math.max(selBoxStart.y, selBoxCur.y);
+      if(x2 - x1 <= 5 && y2 - y1 <= 5) return;
+      junctions.forEach(j => {
+        if(j.x >= x1 && j.x <= x2 && j.y >= y1 && j.y <= y2) selectedIds.add(jidKey(j.id));
+      });
+      patchJunctionElements();
+    }, true);
+  }
+
+  const previousSetDrawColor = window.setDrawColor || setDrawColor;
+  window.setDrawColor = setDrawColor = function(color, el){
+    const junctionIds = [...selectedIds].filter(id => typeof id === 'string' && id.startsWith('junction:')).map(id => id.slice(9));
+    previousSetDrawColor(color, el);
+    if(junctionIds.length){
+      junctionIds.forEach(id => {
+        const j = junctions.find(x => x.id === id);
+        if(j) j.color = color;
+      });
+      renderAll();
+      showProps();
+    }
+  };
+
+  renderAll();
+})();
+</script>
+
+
+
+<script id="component-size-balance-and-shortcuts-patch">
+// ===== 部品サイズ調整・素子スケール・ショートカット表示 最終パッチ =====
+(function(){
+  if(window.__componentSizeBalancePatchInstalled) return;
+  window.__componentSizeBalancePatchInstalled = true;
+
+  const DEFAULT_SIZE = 1;
+  const MIN_SIZE = 0.45;
+  const MAX_SIZE = 2.4;
+
+  function clampSize(v){
+    const n = Number(v);
+    if(!Number.isFinite(n)) return DEFAULT_SIZE;
+    return Math.max(MIN_SIZE, Math.min(MAX_SIZE, n));
+  }
+  function compSize(c){ return clampSize(c && c.size != null ? c.size : DEFAULT_SIZE); }
+  function esc(s){
+    if(typeof exportEscape === 'function') return exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+  function isCompId(id){ return typeof id === 'string' && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:'); }
+  function selectedComponents(){ return [...selectedIds].filter(isCompId).map(id => components.find(c => c.id === id)).filter(Boolean); }
+
+  // トランジスタ/MOS は抵抗・コンデンサと並べた時に大きく見えすぎないサイズへ調整。
+  Object.assign(DEFS, {
+    npn:  {name:'NPN Tr', w:56, h:54, terms:[{x:-28,y:0,id:'B'},{x:28,y:-21,id:'C'},{x:28,y:21,id:'E'}], defVal:'', pre:'Q'},
+    pnp:  {name:'PNP Tr', w:56, h:54, terms:[{x:-28,y:0,id:'B'},{x:28,y:-21,id:'E'},{x:28,y:21,id:'C'}], defVal:'', pre:'Q'},
+    nmos: {name:'NMOS',   w:58, h:54, terms:[{x:-29,y:0,id:'G'},{x:29,y:-21,id:'D'},{x:29,y:21,id:'S'}], defVal:'', pre:'M'},
+    pmos: {name:'PMOS',   w:58, h:54, terms:[{x:-29,y:0,id:'G'},{x:29,y:-21,id:'D'},{x:29,y:21,id:'S'}], defVal:'', pre:'M'}
+  });
+
+  const oldCompSVG = compSVG;
+  compSVG = window.compSVG = function(type, color=currentColor){
+    const sw2 = 1.55;
+    const transistor = {
+      npn:`
+        <circle cx="0" cy="0" r="21" fill="white" stroke="${color}" stroke-width="1.15"/>
+        <line x1="-28" y1="0" x2="-8" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-8" y1="-16" x2="-8" y2="16" stroke="${color}" stroke-width="2.1"/>
+        <line x1="-8" y1="-10" x2="19" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-21" x2="28" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-8" y1="10" x2="19" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="21" x2="28" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <polygon points="13,16 21,22 17,12" fill="${color}"/>`,
+      pnp:`
+        <circle cx="0" cy="0" r="21" fill="white" stroke="${color}" stroke-width="1.15"/>
+        <line x1="-28" y1="0" x2="-8" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-8" y1="-16" x2="-8" y2="16" stroke="${color}" stroke-width="2.1"/>
+        <line x1="-8" y1="-10" x2="19" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-21" x2="28" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-8" y1="10" x2="19" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="21" x2="28" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <polygon points="-7,8 -15,6 -10,15" fill="${color}"/>`,
+      nmos:`
+        <line x1="-29" y1="0" x2="-16" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-16" y1="-21" x2="-16" y2="21" stroke="${color}" stroke-width="2"/>
+        <line x1="-7" y1="-21" x2="-7" y2="-8" stroke="${color}" stroke-width="2"/>
+        <line x1="-7" y1="8" x2="-7" y2="21" stroke="${color}" stroke-width="2"/>
+        <line x1="-7" y1="-15" x2="19" y2="-15" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-15" x2="19" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-21" x2="29" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-7" y1="15" x2="19" y2="15" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="15" x2="19" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="21" x2="29" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-7" y1="0" x2="12" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <polygon points="-1,-5 -7,0 -1,5" fill="${color}"/>`,
+      pmos:`
+        <line x1="-29" y1="0" x2="-22" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <circle cx="-18" cy="0" r="4" fill="white" stroke="${color}" stroke-width="1.35"/>
+        <line x1="-14" y1="-21" x2="-14" y2="21" stroke="${color}" stroke-width="2"/>
+        <line x1="-5" y1="-21" x2="-5" y2="-8" stroke="${color}" stroke-width="2"/>
+        <line x1="-5" y1="8" x2="-5" y2="21" stroke="${color}" stroke-width="2"/>
+        <line x1="-5" y1="-15" x2="19" y2="-15" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-15" x2="19" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="-21" x2="29" y2="-21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-5" y1="15" x2="19" y2="15" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="15" x2="19" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="19" y1="21" x2="29" y2="21" stroke="${color}" stroke-width="${sw2}"/>
+        <line x1="-5" y1="0" x2="13" y2="0" stroke="${color}" stroke-width="${sw2}"/>
+        <polygon points="13,-5 19,0 13,5" fill="${color}"/>`
+    };
+    return transistor[type] || oldCompSVG(type, color);
+  };
+
+  const oldAddComp = addComp;
+  addComp = window.addComp = function(type, x, y, opts={}){
+    const c = oldAddComp(type, x, y, opts);
+    if(c.size == null) c.size = DEFAULT_SIZE;
+    return c;
+  };
+
+  getTerms = window.getTerms = function(c){
+    const def = DEFS[c.type];
+    const sz = compSize(c);
+    return def.terms.map(t => {
+      let tx = (c.flip ? -t.x : t.x) * sz;
+      let ty = t.y * sz;
+      const a = (c.rotation || 0) * Math.PI / 180;
+      const rx = tx*Math.cos(a) - ty*Math.sin(a);
+      const ry = tx*Math.sin(a) + ty*Math.cos(a);
+      return {id:t.id, x:snap(c.x+rx), y:snap(c.y+ry)};
+    });
+  };
+
+  renderComp = window.renderComp = function(c){
+    if(c.size == null) c.size = DEFAULT_SIZE;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('transform', `translate(${c.x},${c.y})`);
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    const sz = compSize(c);
+    const scaleX = c.flip ? -1 : 1;
+    const symbolG = document.createElementNS('http://www.w3.org/2000/svg','g');
+    symbolG.setAttribute('transform', `rotate(${c.rotation || 0}) scale(${scaleX * sz},${sz})`);
+    symbolG.innerHTML = compSVG(c.type, c.color || currentColor);
+
+    if(selectedIds.has(c.id)){
+      const def = DEFS[c.type];
+      const hw = Math.max(def.w/2,25)+14, hh = Math.max(def.h/2,15)+14;
+      const sel = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      sel.setAttribute('x',-hw); sel.setAttribute('y',-hh);
+      sel.setAttribute('width',hw*2); sel.setAttribute('height',hh*2);
+      sel.setAttribute('fill','rgba(59,130,246,.07)');
+      sel.setAttribute('stroke','#3b82f6');
+      sel.setAttribute('stroke-width', Math.max(0.8, 1.2 / sz));
+      sel.setAttribute('stroke-dasharray','5 3');
+      sel.setAttribute('rx','5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    DEFS[c.type].terms.forEach(t => {
+      const termWorld = getTerms(c).find(tt => tt.id === t.id) || {x:c.x,y:c.y};
+      const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', Math.max(5, 11 / sz));
+      dot.setAttribute('fill','transparent');
+      dot.setAttribute('class','term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    const labelG = document.createElementNS('http://www.w3.org/2000/svg','g');
+    labelG.setAttribute('transform', `rotate(0)`);
+    if(c.ref){
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x','0'); t.setAttribute('y', String(-34 * sz));
+      t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11');
+      t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
+      t.setAttribute('fill','#111'); t.setAttribute('font-weight','600');
+      t.textContent = c.ref; labelG.appendChild(t);
+    }
+    if(c.value){
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('x','0'); t.setAttribute('y', String(42 * sz));
+      t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10');
+      t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
+      t.setAttribute('fill','#555');
+      t.textContent = c.value; labelG.appendChild(t);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', e => {
+      if(placingType) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }
+        const pt = svgPt(e);
+        saveState();
+        dragging = {startPt: pt, origPositions: {}};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x: comp.x, y: comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x: sh.x, y: sh.y}; });
+        mathLabels.forEach(m => { if(selectedIds.has('math:'+m.id)) dragging.origPositions['math:'+m.id] = {x: m.x, y: m.y}; });
+        junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x: j.x, y: j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  window.setComponentSize = function(v){
+    const comps = selectedComponents();
+    if(!comps.length) return;
+    saveState();
+    const sz = clampSize(v);
+    comps.forEach(c => { c.size = sz; if(typeof updateAttachedWires === 'function') updateAttachedWires(c); });
+    renderAll(); showProps(); runChecks();
+  };
+
+  const oldShowProps = showProps;
+  showProps = window.showProps = function(){
+    const title=document.getElementById('prop-title'), sub=document.getElementById('prop-sub'), body=document.getElementById('prop-body');
+    if(selectedIds.size===1){
+      const id=[...selectedIds][0];
+      if(isCompId(id)){
+        const c=components.find(x=>x.id===id);
+        if(c){
+          if(c.size == null) c.size = DEFAULT_SIZE;
+          const def=DEFS[c.type];
+          title.textContent=def.name; sub.textContent=c.id;
+          body.innerHTML=`<div class="prop-field"><label class="prop-label">参照名</label><input class="prop-input" value="${esc(c.ref||'')}" oninput="setProp('ref',this.value)"></div>
+          <div class="prop-field"><label class="prop-label">値</label><input class="prop-input" value="${esc(c.value||'')}" oninput="setProp('value',this.value)"></div>
+          <div class="prop-field"><label class="prop-label">素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${compSize(c)}" oninput="setComponentSize(this.value)"></div>
+          <div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="${c.color||currentColor}" oninput="setProp('color',this.value)"></div>
+          <div class="prop-field"><label class="prop-label">型番</label><input class="prop-input" value="${esc(c.model||'')}" oninput="setProp('model',this.value)"></div>
+          <div class="prop-field"><label class="prop-label">メモ</label><input class="prop-input" value="${esc(c.note||'')}" oninput="setProp('note',this.value)"></div>
+          <div class="btn-row"><button class="prop-btn" title="ショートカット: Ctrl+R で回転" onclick="rotateSelected()">↻ 回転</button><button class="prop-btn" title="ショートカット: Ctrl+E で反転" onclick="flipSelected()">⇄ 反転</button></div><button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+          return;
+        }
+      }
+    }
+    if(selectedIds.size > 1){
+      const comps = selectedComponents();
+      if(comps.length){
+        const same = comps.every(c => compSize(c) === compSize(comps[0]));
+        title.textContent='複数選択'; sub.textContent=selectedIds.size+'個';
+        body.innerHTML=`<div class="btn-row"><button class="prop-btn" onclick="copySelection()">コピー</button><button class="prop-btn" onclick="pasteSelectionAtMouse()">貼付</button></div>
+        <div class="prop-field"><label class="prop-label">選択中の素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${same ? compSize(comps[0]) : ''}" placeholder="${same ? '' : '混在'}" oninput="setComponentSize(this.value)"></div>
+        <div class="btn-row"><button class="prop-btn" title="ショートカット: Ctrl+R で回転" onclick="rotateSelected()">↻ 回転</button><button class="prop-btn" title="ショートカット: Ctrl+E で反転" onclick="flipSelected()">⇄ 反転</button></div><button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+        return;
+      }
+    }
+    oldShowProps();
+  };
+
+  const oldSetProp = window.setProp || setProp;
+  setProp = window.setProp = function(key, val){
+    if(key === 'size') return setComponentSize(val);
+    oldSetProp(key, val);
+  };
+
+  const oldComponentToSVG = window.componentToSVG;
+  window.componentToSVG = componentToSVG = function(c){
+    const sx = c.flip ? -1 : 1;
+    const sz = compSize(c);
+    const color = c.color || currentColor || '#1a1a1a';
+    let out = `<g transform="translate(${c.x},${c.y}) rotate(${c.rotation||0}) scale(${sx*sz},${sz})">${compSVG(c.type, color)}</g>`;
+    if(c.ref){ out += `<text x="${c.x}" y="${c.y - 34*sz}" text-anchor="middle" font-size="11" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#111" font-weight="600">${esc(c.ref)}</text>`; }
+    if(c.value){ out += `<text x="${c.x}" y="${c.y + 42*sz}" text-anchor="middle" font-size="10" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#555">${esc(c.value)}</text>`; }
+    return out;
+  };
+
+  if(typeof getBoundingBox === 'function'){
+    getBoundingBox = window.getBoundingBox = function(){
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      components.forEach(c => { const def=DEFS[c.type]; const sz=compSize(c); const hw=(def.w/2+55)*sz, hh=(def.h/2+55)*sz; minX=Math.min(minX,c.x-hw); maxX=Math.max(maxX,c.x+hw); minY=Math.min(minY,c.y-hh); maxY=Math.max(maxY,c.y+hh); });
+      wires.forEach(w => { minX=Math.min(minX,w.x1,w.x2); maxX=Math.max(maxX,w.x1,w.x2); minY=Math.min(minY,w.y1,w.y2); maxY=Math.max(maxY,w.y1,w.y2); });
+      junctions.forEach(j => { minX=Math.min(minX,j.x-8); maxX=Math.max(maxX,j.x+8); minY=Math.min(minY,j.y-8); maxY=Math.max(maxY,j.y+8); });
+      mathLabels.forEach(m => { const w=m.w||120,h=m.h||40; minX=Math.min(minX,m.x-w/2); maxX=Math.max(maxX,m.x+w/2); minY=Math.min(minY,m.y-h/2); maxY=Math.max(maxY,m.y+h/2); });
+      shapes.forEach(sh => { const b=typeof shapeBox==='function'?shapeBox(sh):{w:sh.w||40,h:sh.h||40}; minX=Math.min(minX,sh.x-b.w/2); maxX=Math.max(maxX,sh.x+b.w/2); minY=Math.min(minY,sh.y-b.h/2); maxY=Math.max(maxY,sh.y+b.h/2); });
+      if(minX===Infinity) return {minX:-100,minY:-100,maxX:100,maxY:100};
+      return {minX,minY,maxX,maxY};
+    };
+  }
+
+  function installShortcutHints(){
+    const rotateBtns = [...document.querySelectorAll('button')].filter(b => (b.getAttribute('onclick')||'').includes('rotateSelected'));
+    const flipBtns = [...document.querySelectorAll('button')].filter(b => (b.getAttribute('onclick')||'').includes('flipSelected'));
+    rotateBtns.forEach(b => { b.title = 'ショートカット: Ctrl+R で回転'; b.setAttribute('aria-label','回転。ショートカットは Ctrl+R'); });
+    flipBtns.forEach(b => { b.title = 'ショートカット: Ctrl+E で反転'; b.setAttribute('aria-label','反転。ショートカットは Ctrl+E'); });
+  }
+  installShortcutHints();
+  document.addEventListener('mouseover', installShortcutHints, true);
+
+  function shortcutTargetIsEditable(e){
+    const el = e.target;
+    return !!(el && el.closest && el.closest('input, textarea, select, [contenteditable="true"], #math-modal'));
+  }
+  document.addEventListener('keydown', function(e){
+    if(shortcutTargetIsEditable(e)) return;
+    const key = e.key.toLowerCase();
+    if((e.ctrlKey || e.metaKey) && key === 'e'){
+      e.preventDefault(); e.stopPropagation();
+      if(typeof flipSelected === 'function') flipSelected();
+    }
+  }, true);
+
+  components.forEach(c => { if(c.size == null) c.size = DEFAULT_SIZE; });
+  try{ renderAll(); showProps(); runChecks(); }catch(_){ }
+})();
+</script>
+
+
+<script>
+(function(){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  function escHtml(s){
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ----- transistor / MOSFET geometry: restored to reference shape only -----
+  DEFS.npn  = {name:'NPN Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'C'},{x:0,y:38,id:'E'}], defVal:'', pre:'Q'};
+  DEFS.pnp  = {name:'PNP Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'E'},{x:0,y:38,id:'C'}], defVal:'', pre:'Q'};
+  DEFS.nmos = {name:'NMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
+  DEFS.pmos = {name:'PMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
+  DEFS.acsource = {name:'交流電源', w:42, h:70, terms:[{x:0,y:-35,id:'A'},{x:0,y:35,id:'B'}], defVal:'', pre:'VAC'};
+
+  function arrowPolygon(tip, dir, color, size=9){
+    const len = Math.hypot(dir.x, dir.y) || 1;
+    const ux = dir.x / len, uy = dir.y / len;
+    const px = -uy, py = ux;
+    const bx = tip.x - ux * size, by = tip.y - uy * size;
+    const w = size * 0.58;
+    return `<polygon points="${tip.x},${tip.y} ${bx+px*w},${by+py*w} ${bx-px*w},${by-py*w}" fill="${color}"/>`;
+  }
+
+  const previousCompSVG = window.compSVG;
+  window.compSVG = compSVG = function(type, color=currentColor){
+    const c = color || '#1a1a1a';
+    const sw = 1.6;
+    const circle = `<circle cx="0" cy="0" r="28" fill="white" stroke="${c}" stroke-width="${sw}"/>`;
+
+    if(type === 'npn') return `${circle}
+      <line x1="-36" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-14" y1="-18" x2="-14" y2="18" stroke="${c}" stroke-width="2.8" stroke-linecap="round"/>
+      <polyline points="-14,-10 0,-22 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-14,10 0,22 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      ${arrowPolygon({x:-2,y:22},{x:14,y:12},c,9)}
+    `;
+    if(type === 'pnp') return `${circle}
+      <line x1="-36" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-14" y1="-18" x2="-14" y2="18" stroke="${c}" stroke-width="2.8" stroke-linecap="round"/>
+      <polyline points="-14,-10 0,-22 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-14,10 0,22 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      ${arrowPolygon({x:-13,y:-11},{x:-12,y:10},c,9)}
+    `;
+    if(type === 'nmos') return `${circle}
+      <line x1="-36" y1="0" x2="-20" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-20" y1="-18" x2="-20" y2="18" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="-8" y1="-20" x2="-8" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+      <polyline points="-4,-20 0,-20 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-4,20 0,20 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="-4" y1="0" x2="12" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      ${arrowPolygon({x:12,y:0},{x:1,y:0},c,10)}
+    `;
+    if(type === 'pmos') return `${circle}
+      <line x1="-36" y1="0" x2="-20" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-20" y1="-18" x2="-20" y2="18" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="-8" y1="-20" x2="-8" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+      <polyline points="-4,-20 0,-20 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-4,20 0,20 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="-4" y1="0" x2="12" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      ${arrowPolygon({x:-4,y:0},{x:-1,y:0},c,10)}
+    `;
+    if(type === 'vsource') return `
+      <line x1="0" y1="-34" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
+      <line x1="0" y1="22" x2="0" y2="34" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="0" y1="-10" x2="0" y2="2" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="-6" y1="-4" x2="6" y2="-4" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="-6" y1="10" x2="6" y2="10" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+    `;
+    if(type === 'isource') return `
+      <line x1="0" y1="-34" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
+      <line x1="0" y1="22" x2="0" y2="34" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="0" y1="10" x2="0" y2="-8" stroke="${c}" stroke-width="1.4" stroke-linecap="round"/>
+      <polygon points="0,-12 -5,-2 5,-2" fill="${c}"/>
+    `;
+    if(type === 'acsource') return `
+      <line x1="0" y1="-35" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
+      <line x1="0" y1="22" x2="0" y2="35" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <path d="M -12 2 C -8 -8, -2 -8, 2 2 S 12 12, 12 2" fill="none" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+    `;
+    return previousCompSVG(type, color);
+  };
+
+  function updatePaletteIcon(selector, inner, viewBox){
+    const item = document.querySelector(selector);
+    if(!item) return;
+    const old = item.querySelector('svg');
+    if(old){
+      const svg = document.createElementNS(SVGNS,'svg');
+      svg.setAttribute('class','pal-icon');
+      svg.setAttribute('viewBox', viewBox);
+      svg.innerHTML = inner;
+      old.replaceWith(svg);
+    }
+  }
+  function refreshPaletteSymbols2(){
+    updatePaletteIcon('#pal-npn', window.compSVG('npn','#333'), '-34 -38 68 76');
+    updatePaletteIcon('#pal-pnp', window.compSVG('pnp','#333'), '-34 -38 68 76');
+    updatePaletteIcon('#pal-nmos', window.compSVG('nmos','#333'), '-34 -38 68 76');
+    updatePaletteIcon('#pal-pmos', window.compSVG('pmos','#333'), '-34 -38 68 76');
+    updatePaletteIcon('#pal-vsource', window.compSVG('vsource','#333'), '-26 -38 52 76');
+    updatePaletteIcon('#pal-isource', window.compSVG('isource','#333'), '-26 -38 52 76');
+    updatePaletteIcon('#pal-acsource', window.compSVG('acsource','#333'), '-26 -38 52 76');
+  }
+
+  function installAcSourcePalette(){
+    if(document.getElementById('pal-acsource')) return;
+    const vsrc = document.getElementById('pal-vsource');
+    if(!vsrc || !vsrc.parentElement) return;
+    const div = document.createElement('div');
+    div.className = 'pal-item';
+    div.id = 'pal-acsource';
+    div.setAttribute('onclick', "startPlace('acsource')");
+    div.innerHTML = `<svg class="pal-icon" viewBox="-26 -38 52 76">${window.compSVG('acsource','#333')}</svg><span class="pal-name">交流電源</span>`;
+    vsrc.insertAdjacentElement('afterend', div);
+  }
+  installAcSourcePalette();
+  refreshPaletteSymbols2();
+
+  // make selection helpers accessible for junctions too
+  window.setJunctionProp = function(key, val){
+    const id = [...selectedIds][0];
+    if(!id || !id.startsWith('junction:')) return;
+    const j = junctions.find(x => x.id === id.slice(9));
+    if(!j) return;
+    saveState();
+    j[key] = val;
+    renderAll();
+    showProps();
+    runChecks();
+  };
+
+  const priorRenderAll = window.renderAll;
+  window.renderAll = renderAll = function(){
+    const wiresLayer = document.getElementById('wires-layer');
+    const junctionsLayer = document.getElementById('junctions-layer');
+    const mathLayer = document.getElementById('math-layer');
+    const compsLayer = document.getElementById('comps-layer');
+    wiresLayer.innerHTML = '';
+    junctionsLayer.innerHTML = '';
+    mathLayer.innerHTML = '';
+    compsLayer.innerHTML = '';
+
+    wires.forEach(w => wiresLayer.appendChild(drawWireEl(w)));
+
+    junctions.forEach(j => {
+      const g = document.createElementNS(SVGNS,'g');
+      g.setAttribute('data-jid', j.id);
+      g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+      if(selectedIds.has('junction:'+j.id)){
+        const halo = document.createElementNS(SVGNS,'circle');
+        halo.setAttribute('cx', j.x);
+        halo.setAttribute('cy', j.y);
+        halo.setAttribute('r', '8');
+        halo.setAttribute('fill', 'rgba(59,130,246,.10)');
+        halo.setAttribute('stroke', '#3b82f6');
+        halo.setAttribute('stroke-width', '1');
+        halo.setAttribute('stroke-dasharray', '4 3');
+        g.appendChild(halo);
+      }
+      const c = document.createElementNS(SVGNS,'circle');
+      c.setAttribute('cx', j.x);
+      c.setAttribute('cy', j.y);
+      c.setAttribute('r', selectedIds.has('junction:'+j.id) ? '4.6' : '4');
+      c.setAttribute('fill', j.color || currentColor || '#6b7280');
+      g.appendChild(c);
+      const hit = document.createElementNS(SVGNS,'circle');
+      hit.setAttribute('cx', j.x);
+      hit.setAttribute('cy', j.y);
+      hit.setAttribute('r', '10');
+      hit.setAttribute('fill', 'transparent');
+      g.appendChild(hit);
+      g.addEventListener('mousedown', e => {
+        if(tool !== 'select' || placingType || placingShape) return;
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has('junction:'+j.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add('junction:'+j.id);
+          renderAll();
+          showProps();
+        }
+        const pt = svgPt(e);
+        saveState();
+        dragging = {startPt: pt, origPositions: {}};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x: comp.x, y: comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x: sh.x, y: sh.y}; });
+        mathLabels.forEach(m => { if(selectedIds.has('math:'+m.id)) dragging.origPositions['math:'+m.id] = {x: m.x, y: m.y}; });
+        junctions.forEach(jj => { if(selectedIds.has('junction:'+jj.id)) dragging.origPositions['junction:'+jj.id] = {x: jj.x, y: jj.y}; });
+        dragMoved = false;
+      });
+      junctionsLayer.appendChild(g);
+    });
+
+    shapes.forEach(sh => compsLayer.appendChild(renderShape(sh)));
+
+    if(typeof window.fitAllMathLabels === 'function') window.fitAllMathLabels();
+    mathLabels.forEach(m => {
+      const g = document.createElementNS(SVGNS,'g');
+      g.setAttribute('transform', `translate(${m.x},${m.y})`);
+      g.setAttribute('data-mid', m.id);
+      g.style.cursor = 'pointer';
+      const fo = document.createElementNS(SVGNS,'foreignObject');
+      fo.setAttribute('x','-160');
+      fo.setAttribute('y','-36');
+      fo.setAttribute('width','320');
+      fo.setAttribute('height','80');
+      const div = document.createElement('div');
+      const mode = m.mode || 'text';
+      div.style.cssText = `font-size:${m.size||18}px;text-align:center;color:${m.color||currentColor};font-family:${cssFontForLabel(m)};white-space:pre-wrap;font-weight:${m.bold?'700':'400'};font-style:${m.italic?'italic':'normal'};line-height:1.15`;
+      div.innerHTML = mode === 'math' ? mathToSVGHtml(m.src) : exportEscape(m.src).replace(/\n/g,'<br>');
+      fo.appendChild(div);
+      g.appendChild(fo);
+      if(selectedIds.has('math:'+m.id)){
+        const box = document.createElementNS(SVGNS,'rect');
+        const bw = Math.max(28, Number(m.w) || 80);
+        const bh = Math.max(20, Number(m.h) || Math.ceil((Number(m.size) || 18) * 1.35 + 6));
+        const pad = 3;
+        box.setAttribute('x', String(-bw/2 - pad));
+        box.setAttribute('y', String(-bh/2 - pad));
+        box.setAttribute('width', String(bw + pad*2));
+        box.setAttribute('height', String(bh + pad*2));
+        box.setAttribute('fill','rgba(59,130,246,.06)');
+        box.setAttribute('stroke','#3b82f6');
+        box.setAttribute('stroke-width','1');
+        box.setAttribute('stroke-dasharray','4 3');
+        box.setAttribute('rx','3');
+        g.insertBefore(box, fo);
+      }
+      g.addEventListener('mousedown', e => {
+        if(placingType || placingShape) return;
+        if(tool === 'select'){
+          e.stopPropagation();
+          selectedWireId = null;
+          if(!selectedIds.has('math:'+m.id)){
+            if(!e.shiftKey) selectedIds.clear();
+            selectedIds.add('math:'+m.id);
+            renderAll();
+            showProps();
+          }
+          saveState();
+          dragging = {startPt: svgPt(e), origPositions:{}};
+          components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x: comp.x, y: comp.y}; });
+          shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x: sh.x, y: sh.y}; });
+          mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+          junctions.forEach(jj => { if(selectedIds.has('junction:'+jj.id)) dragging.origPositions['junction:'+jj.id] = {x:jj.x, y:jj.y}; });
+          dragMoved = false;
+        }
+      });
+      g.addEventListener('dblclick', e => { e.stopPropagation(); if(typeof editSelectedTextInPanel === 'function') editSelectedTextInPanel(); });
+      mathLayer.appendChild(g);
+    });
+
+    components.forEach(c => compsLayer.appendChild(renderComp(c)));
+  };
+
+  const priorShowProps = window.showProps;
+  window.showProps = showProps = function(){
+    const title = document.getElementById('prop-title');
+    const sub = document.getElementById('prop-sub');
+    const body = document.getElementById('prop-body');
+    if(selectedIds.size === 1){
+      const id = [...selectedIds][0];
+      if(id.startsWith('junction:')){
+        const j = junctions.find(x => x.id === id.slice(9));
+        if(j){
+          title.textContent = '結線点';
+          sub.textContent = j.id;
+          body.innerHTML = `
+            <div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="${j.color||currentColor||'#6b7280'}" oninput="setJunctionProp('color',this.value)"></div>
+            <div class="hint">クリックしても削除されず、選択・移動できるように修正しました。</div>
+            <button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+          return;
+        }
+      }
+    }
+    priorShowProps();
+  };
+
+  // Toolbar tooltips for shortcut discoverability.
+  [...document.querySelectorAll('button')].forEach(btn => {
+    const oc = btn.getAttribute('onclick') || '';
+    if(oc.includes('rotateSelected')) btn.title = 'ショートカット: Ctrl+R で回転';
+    if(oc.includes('flipSelected')) btn.title = 'ショートカット: Ctrl+E で反転';
+  });
+
+  // Existing data compatibility.
+  components.forEach(c => {
+    if(c.type === 'acsource' && !c.ref) c.ref = 'VAC';
+    if(c.type === 'npn' || c.type === 'pnp' || c.type === 'nmos' || c.type === 'pmos'){
+      if(c.size == null) c.size = 1;
+    }
+  });
+
+  try{ renderAll(); showProps(); runChecks(); }catch(err){ console.error(err); }
+})();
+</script>
+
+
+<script id="text-selection-and-wire-dot-style-fix">
+// ===== v16 patch: fix text/math selection frame alignment + wire dotted style from selected wire properties =====
+(function(){
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  function escAttr(s){
+    return String(s ?? '').replace(/[&<>\"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  }
+
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return window.getCircuitLineWidth();
+    return Math.max(0.5, Math.min(10, Number(window.circuitLineWidth) || 1.6));
+  }
+
+  function normalizeWireStyle(w){
+    if(!w) return 'solid';
+    if(!w.style && w.dashed === true) w.style = 'dotted';
+    if(!w.style) w.style = 'solid';
+    return w.style;
+  }
+
+  function wireDashArray(w){
+    const style = normalizeWireStyle(w);
+    if(style === 'dotted') return '1 6';
+    if(style === 'dashed') return '8 5';
+    return '';
+  }
+
+  function applyDashToPath(path, w){
+    const dash = wireDashArray(w);
+    if(dash){
+      path.setAttribute('stroke-dasharray', dash);
+      path.setAttribute('stroke-linecap', 'round');
+    }else{
+      path.removeAttribute('stroke-dasharray');
+    }
+  }
+
+  function selectedWireIds(){
+    const ids = new Set();
+    if(selectedWireId) ids.add(selectedWireId);
+    selectedIds.forEach(id => {
+      if(typeof id === 'string' && id.startsWith('wire:')) ids.add(id.slice(5));
+    });
+    return ids;
+  }
+
+  // Replace the last effective wire renderer so each wire can carry its own style.
+  window.drawWireEl = drawWireEl = function(w){
+    normalizeWireStyle(w);
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('data-wid', w.id);
+    const d = wirePathD(w);
+    const isSelected = selectedWireId === w.id || selectedIds.has('wire:' + w.id);
+    const lw = lineWidth();
+
+    if(isSelected){
+      const hl = document.createElementNS(SVGNS, 'path');
+      hl.setAttribute('d', d);
+      hl.setAttribute('fill', 'none');
+      hl.setAttribute('stroke', '#3b82f6');
+      hl.setAttribute('stroke-width', String(lw + 3));
+      hl.setAttribute('stroke-linecap', 'round');
+      hl.setAttribute('stroke-linejoin', 'round');
+      hl.setAttribute('opacity', '0.24');
+      g.appendChild(hl);
+    }
+
+    const path = document.createElementNS(SVGNS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', w.color || currentColor || '#6b7280');
+    path.setAttribute('stroke-width', String(lw));
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    applyDashToPath(path, w);
+    g.appendChild(path);
+
+    const hit = document.createElementNS(SVGNS, 'path');
+    hit.setAttribute('d', d);
+    hit.setAttribute('fill', 'none');
+    hit.setAttribute('stroke', 'transparent');
+    hit.setAttribute('stroke-width', '12');
+    hit.setAttribute('stroke-linecap', 'round');
+    hit.setAttribute('stroke-linejoin', 'round');
+    g.appendChild(hit);
+
+    g.addEventListener('mousedown', e => {
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        const key = 'wire:' + w.id;
+        if(e.shiftKey){
+          if(selectedIds.has(key)) selectedIds.delete(key);
+          else selectedIds.add(key);
+        }else{
+          selectedIds.clear();
+          selectedIds.add(key);
+        }
+        const wireKeys = [...selectedIds].filter(id => typeof id === 'string' && id.startsWith('wire:'));
+        selectedWireId = wireKeys.length === 1 && selectedIds.size === 1 ? wireKeys[0].slice(5) : null;
+        renderAll();
+        if(selectedWireId) showWireProps(w); else showProps();
+      }
+    });
+    return g;
+  };
+
+  window.setSelectedWireStyle = function(style){
+    const ids = selectedWireIds();
+    if(!ids.size) return;
+    saveState();
+    ids.forEach(id => {
+      const w = wires.find(x => x.id === id);
+      if(w) w.style = style || 'solid';
+    });
+    renderAll();
+    const first = wires.find(x => x.id === selectedWireId) || wires.find(x => ids.has(x.id));
+    if(first && ids.size === 1) showWireProps(first); else showProps();
+  };
+
+  const prevSetSelectedWireColor = window.setSelectedWireColor;
+  window.setSelectedWireColor = function(color){
+    const ids = selectedWireIds();
+    if(!ids.size){ if(prevSetSelectedWireColor) prevSetSelectedWireColor(color); return; }
+    saveState();
+    ids.forEach(id => {
+      const w = wires.find(x => x.id === id);
+      if(w) w.color = color;
+    });
+    renderAll();
+    const first = wires.find(x => x.id === selectedWireId) || wires.find(x => ids.has(x.id));
+    if(first && ids.size === 1) showWireProps(first); else showProps();
+  };
+
+  window.showWireProps = function(w){
+    if(!w) return;
+    normalizeWireStyle(w);
+    const title = document.getElementById('prop-title');
+    const sub = document.getElementById('prop-sub');
+    const body = document.getElementById('prop-body');
+    if(!title || !sub || !body) return;
+    title.textContent = '配線';
+    sub.textContent = w.id;
+    body.innerHTML = `
+      <div class="prop-field">
+        <label class="prop-label">色</label>
+        <input class="prop-input" type="color" value="${escAttr(w.color || currentColor || '#6b7280')}" oninput="setSelectedWireColor(this.value)">
+      </div>
+      <div class="prop-field">
+        <label class="prop-label">線の種類</label>
+        <select class="prop-input" onchange="setSelectedWireStyle(this.value)">
+          <option value="solid" ${w.style === 'solid' ? 'selected' : ''}>実線</option>
+          <option value="dotted" ${w.style === 'dotted' ? 'selected' : ''}>点線</option>
+          <option value="dashed" ${w.style === 'dashed' ? 'selected' : ''}>破線</option>
+        </select>
+      </div>
+      <div class="hint">配線を選択してから、ここで実線・点線・破線を切り替えられます。</div>
+      <button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
+  };
+
+  // Keep the general property panel aware of selected wires, including wire selections stored in selectedIds.
+  const prevShowProps = window.showProps || showProps;
+  window.showProps = showProps = function(){
+    const ids = selectedWireIds();
+    if(ids.size === 1 && selectedIds.size === 1){
+      const w = wires.find(x => x.id === [...ids][0]);
+      if(w){ showWireProps(w); return; }
+    }
+    prevShowProps();
+  };
+
+  // Make text/math selection rectangles use the exact rendered foreignObject bounds.
+  function fixTextSelectionFrames(){
+    document.querySelectorAll('#math-layer g[data-mid]').forEach(g => {
+      const m = mathLabels.find(x => x.id === g.getAttribute('data-mid'));
+      const fo = g.querySelector('foreignObject');
+      if(!m || !fo) return;
+
+      const w = Math.max(8, Number(m.w) || Number(fo.getAttribute('width')) || 40);
+      const h = Math.max(8, Number(m.h) || Number(fo.getAttribute('height')) || 24);
+      m.w = w;
+      m.h = h;
+      fo.setAttribute('x', String(-w / 2));
+      fo.setAttribute('y', String(-h / 2));
+      fo.setAttribute('width', String(w));
+      fo.setAttribute('height', String(h));
+      const div = fo.firstElementChild;
+      if(div){
+        div.style.boxSizing = 'border-box';
+        div.style.width = w + 'px';
+        div.style.height = h + 'px';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = (m.align === 'left') ? 'flex-start' : (m.align === 'right' ? 'flex-end' : 'center');
+        div.style.textAlign = m.align || 'center';
+        div.style.overflow = 'visible';
+      }
+
+      // Only adjust the selection rectangle for this label, not internal math elements.
+      const r = Array.from(g.children).find(el => el.tagName && el.tagName.toLowerCase() === 'rect');
+      if(r && selectedIds.has('math:' + m.id)){
+        const pad = 2;
+        r.setAttribute('x', String(-w / 2 - pad));
+        r.setAttribute('y', String(-h / 2 - pad));
+        r.setAttribute('width', String(w + pad * 2));
+        r.setAttribute('height', String(h + pad * 2));
+        r.setAttribute('rx', '3');
+      }
+    });
+  }
+
+  const prevRenderAll = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    prevRenderAll();
+    wires.forEach(normalizeWireStyle);
+    document.querySelectorAll('#wires-layer g[data-wid]').forEach(g => {
+      const w = wires.find(x => x.id === g.getAttribute('data-wid'));
+      if(!w) return;
+      const paths = Array.from(g.querySelectorAll('path')).filter(p => (p.getAttribute('stroke') || '').toLowerCase() !== 'transparent');
+      const actual = paths[paths.length - 1];
+      if(actual) applyDashToPath(actual, w);
+    });
+    fixTextSelectionFrames();
+  };
+
+  // Store dashed/dotted style in exported SVG/PNG output as stroke-dasharray.
+  const prevExportSvgMarkup = window.exportSvgMarkup || exportSvgMarkup;
+  window.exportSvgMarkup = exportSvgMarkup = function(){
+    const out = prevExportSvgMarkup();
+    try{
+      const doc = new DOMParser().parseFromString(out.svg, 'image/svg+xml');
+      wires.forEach(w => {
+        const dash = wireDashArray(w);
+        if(!dash) return;
+        const d = wirePathD(w);
+        Array.from(doc.querySelectorAll('path')).forEach(p => {
+          if(p.getAttribute('d') === d && (p.getAttribute('stroke') || '').toLowerCase() !== 'transparent'){
+            p.setAttribute('stroke-dasharray', dash);
+            p.setAttribute('stroke-linecap', 'round');
+          }
+        });
+      });
+      out.svg = new XMLSerializer().serializeToString(doc);
+    }catch(e){
+      console.warn('wire dash export patch failed', e);
+    }
+    return out;
+  };
+
+  try{
+    wires.forEach(normalizeWireStyle);
+    renderAll();
+    showProps();
+  }catch(e){ console.error(e); }
+})();
+</script>
+
+
+<script id="latex-text-render-regression-fix">
+// ===== v17 patch: keep LaTeX inline layout intact while preserving corrected selection frame =====
+(function(){
+  function selectedTextIds(){
+    const ids = new Set();
+    if(window.selectedIds && typeof selectedIds.forEach === 'function'){
+      selectedIds.forEach(id => {
+        if(typeof id === 'string' && id.startsWith('math:')) ids.add(id.slice(5));
+      });
+    }
+    return ids;
+  }
+
+  function restoreLatexLayoutAndFrame(){
+    const selected = selectedTextIds();
+    document.querySelectorAll('#math-layer g[data-mid]').forEach(g => {
+      const id = g.getAttribute('data-mid');
+      const fo = g.querySelector('foreignObject');
+      if(!fo) return;
+      const div = fo.firstElementChild;
+      const w = Math.max(8, Number(fo.getAttribute('width')) || 40);
+      const h = Math.max(8, Number(fo.getAttribute('height')) || 24);
+
+      if(div){
+        // v16 used flex centering here.  That turns LaTeX text/spans into flex items,
+        // which breaks inline math such as \frac, superscripts and subscripts.
+        div.style.display = 'block';
+        div.style.alignItems = '';
+        div.style.justifyContent = '';
+        div.style.boxSizing = 'border-box';
+        div.style.width = w + 'px';
+        div.style.minWidth = w + 'px';
+        div.style.height = h + 'px';
+        div.style.minHeight = h + 'px';
+        div.style.textAlign = div.style.textAlign || 'center';
+        div.style.overflow = 'visible';
+      }
+
+      const r = Array.from(g.children).find(el => el.tagName && el.tagName.toLowerCase() === 'rect');
+      if(r && selected.has(id)){
+        const pad = 2;
+        r.setAttribute('x', String(Number(fo.getAttribute('x')) - pad));
+        r.setAttribute('y', String(Number(fo.getAttribute('y')) - pad));
+        r.setAttribute('width', String(w + pad * 2));
+        r.setAttribute('height', String(h + pad * 2));
+        r.setAttribute('rx', '3');
+      }
+    });
+  }
+
+  const prevRenderAllV17 = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    prevRenderAllV17();
+    restoreLatexLayoutAndFrame();
+  };
+
+  const prevUpdateMathPreviewV17 = window.updateMathPreview;
+  if(prevUpdateMathPreviewV17){
+    window.updateMathPreview = function(){
+      prevUpdateMathPreviewV17();
+      const pv = document.getElementById('math-preview');
+      if(pv){
+        pv.style.display = 'block';
+        pv.style.textAlign = 'center';
+      }
+    };
+  }
+
+  try{
+    renderAll();
+    showProps();
+  }catch(e){ console.error(e); }
 })();
 </script>
 
