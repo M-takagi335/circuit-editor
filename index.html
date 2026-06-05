@@ -9367,6 +9367,237 @@ body.wire-mode #canvas * {
 })();
 </script>
 
+
+<script id="component-linewidth-shape-safe-final-fix">
+// 最終補正: 元の素子形状を保ったまま、素子サイズと線幅を分離する。
+(function(){
+  if(window.__componentLinewidthShapeSafeFinalFix) return;
+  window.__componentLinewidthShapeSafeFinalFix = true;
+
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const MIN_SIZE = 0.45;
+  const MAX_SIZE = 2.4;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function getLW(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function getSize(c){ return clamp(c && c.size != null ? c.size : 1, MIN_SIZE, MAX_SIZE); }
+  function escAttr(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  }
+
+  function localLineWidth(c){ return getLW() / getSize(c); }
+  function col(c){ return c && c.color || window.currentColor || currentColor || '#6b7280'; }
+
+  // コンデンサ/ダイオード周辺は一括置換では形が崩れやすいため、元の座標を保った専用SVGにする。
+  function safeSymbolSVG(c){
+    const type = c.type;
+    const color = col(c);
+    const lw = localLineWidth(c);
+    if(type === 'capacitor'){
+      const p = Math.max(0.5, lw);
+      return `
+        <line x1="-22" y1="0" x2="-5" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <rect x="${-5 - p/2}" y="-13" width="${p}" height="26" fill="${color}"/>
+        <rect x="${5 - p/2}" y="-13" width="${p}" height="26" fill="${color}"/>
+        <line x1="5" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>`;
+    }
+    if(type === 'electrolytic'){
+      const p = Math.max(0.5, lw);
+      return `
+        <line x1="-22" y1="0" x2="-5" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <rect x="${-5 - p/2}" y="-13" width="${p}" height="26" fill="${color}"/>
+        <rect x="${5 - p/2}" y="-13" width="${p}" height="26" fill="${color}"/>
+        <line x1="5" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <text x="-10" y="-15" font-size="9" fill="${color}" text-anchor="middle">+</text>`;
+    }
+    if(type === 'diode'){
+      return `
+        <line x1="-22" y1="0" x2="-10" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <polygon points="-10,-11 -10,11 10,0" fill="${color}"/>
+        <line x1="10" y1="-11" x2="10" y2="11" stroke="${color}" stroke-width="${lw}" stroke-linecap="butt"/>
+        <line x1="10" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>`;
+    }
+    if(type === 'led'){
+      const a = Math.max(0.6, lw * 0.75);
+      return `
+        <line x1="-22" y1="0" x2="-10" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <polygon points="-10,-11 -10,11 10,0" fill="${color}"/>
+        <line x1="10" y1="-11" x2="10" y2="11" stroke="${color}" stroke-width="${lw}" stroke-linecap="butt"/>
+        <line x1="10" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <line x1="12" y1="-14" x2="20" y2="-22" stroke="${color}" stroke-width="${a}" stroke-linecap="round"/>
+        <line x1="18" y1="-10" x2="26" y2="-18" stroke="${color}" stroke-width="${a}" stroke-linecap="round"/>
+        <polygon points="16,-22 20,-22 20,-18" fill="${color}"/>
+        <polygon points="22,-18 26,-18 26,-14" fill="${color}"/>`;
+    }
+    const prev = window.__shapeSafePrevCompSVG || window.compSVG || compSVG;
+    return prev(type, color);
+  }
+
+  window.__shapeSafePrevCompSVG = window.compSVG || compSVG;
+  window.compSVG = compSVG = function(type, color){
+    const dummy = {type, color: color || window.currentColor || currentColor || '#6b7280', size: 1};
+    return safeSymbolSVG(dummy);
+  };
+
+  function fixStrokeWidths(root, c){
+    const lw = localLineWidth(c);
+    root.querySelectorAll('line,path,rect,circle,ellipse,polygon,polyline').forEach(el => {
+      if(el.classList && el.classList.contains('term-hit')) return;
+      const stroke = (el.getAttribute('stroke') || '').toLowerCase();
+      if(!stroke || stroke === 'none' || stroke === 'transparent' || stroke === '#3b82f6') return;
+      // 塗りつぶし記号の三角形や矢印先端は形が崩れるので、strokeを付け足さない。
+      if((el.tagName || '').toLowerCase() === 'polygon' && (el.getAttribute('fill') || '').toLowerCase() !== 'none') return;
+      el.setAttribute('stroke-width', String(lw));
+      if(!el.getAttribute('stroke-linejoin')) el.setAttribute('stroke-linejoin', 'round');
+    });
+  }
+
+  // 端子計算は素子サイズだけ反映し、線幅は反映しない。
+  window.getTerms = getTerms = function(c){
+    const def = DEFS[c.type];
+    const sz = getSize(c);
+    return def.terms.map(t => {
+      let tx = (c.flip ? -t.x : t.x) * sz;
+      let ty = t.y * sz;
+      const a = (c.rotation || 0) * Math.PI / 180;
+      const rx = tx * Math.cos(a) - ty * Math.sin(a);
+      const ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  };
+
+  window.renderComp = renderComp = function(c){
+    if(c.size == null) c.size = 1;
+    const g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', `translate(${c.x},${c.y})`);
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    const sz = getSize(c);
+    const scaleX = c.flip ? -1 : 1;
+    const symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', `rotate(${c.rotation || 0}) scale(${scaleX * sz},${sz})`);
+    symbolG.innerHTML = safeSymbolSVG(c);
+    fixStrokeWidths(symbolG, c);
+
+    if(selectedIds.has(c.id)){
+      const def = DEFS[c.type];
+      const hw = Math.max(def.w/2, 25) + 14;
+      const hh = Math.max(def.h/2, 15) + 14;
+      const sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    DEFS[c.type].terms.forEach(t => {
+      const termWorld = getTerms(c).find(tt => tt.id === t.id) || {x:c.x, y:c.y};
+      const dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    const labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('x','0'); t.setAttribute('y', String(-34 * sz));
+      t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11');
+      t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
+      t.setAttribute('fill','#111'); t.setAttribute('font-weight','600');
+      t.textContent = c.ref; labelG.appendChild(t);
+    }
+    if(c.value){
+      const t = document.createElementNS(SVGNS, 'text');
+      t.setAttribute('x','0'); t.setAttribute('y', String(42 * sz));
+      t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10');
+      t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
+      t.setAttribute('fill','#555');
+      t.textContent = c.value; labelG.appendChild(t);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', e => {
+      if(placingType) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }
+        const pt = svgPt(e);
+        saveState();
+        dragging = {startPt: pt, origPositions: {}};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x: comp.x, y: comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(sh => { if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x: sh.x, y: sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(m => { if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x: m.x, y: m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(j => { if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x: j.x, y: j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  function finalNormalizeRenderedComponents(){
+    document.querySelectorAll('#comps-layer g[data-id]').forEach(g => {
+      const c = (window.components || components || []).find(x => x.id === g.getAttribute('data-id'));
+      if(c) fixStrokeWidths(g, c);
+    });
+  }
+
+  const prevRenderAll = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    prevRenderAll();
+    finalNormalizeRenderedComponents();
+  };
+
+  // SVG/PNG出力でも同じ考え方で、サイズはtransform、線幅は size で割った値を使う。
+  window.componentToSVG = componentToSVG = function(c){
+    const sz = getSize(c);
+    const sx = c.flip ? -sz : sz;
+    const color = escAttr(col(c));
+    const body = safeSymbolSVG(c).replace(new RegExp(col(c).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), color);
+    let labels = '';
+    if(c.ref) labels += `<text x="0" y="${-34 * sz}" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">${escAttr(c.ref)}</text>`;
+    if(c.value) labels += `<text x="0" y="${42 * sz}" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">${escAttr(c.value)}</text>`;
+    return `<g transform="translate(${c.x},${c.y})"><g transform="rotate(${c.rotation || 0}) scale(${sx},${sz})">${body}</g>${labels}</g>`;
+  };
+
+  const oldSetCircuitLineWidth = window.setCircuitLineWidth;
+  if(oldSetCircuitLineWidth){
+    window.setCircuitLineWidth = setCircuitLineWidth = function(value, skipSaveState){
+      oldSetCircuitLineWidth(value, skipSaveState);
+      finalNormalizeRenderedComponents();
+      if(typeof renderAll === 'function') renderAll();
+    };
+  }
+
+  try{ renderAll(); showProps(); runChecks(); }catch(e){ console.error('component shape safe final fix failed', e); }
+})();
+</script>
+
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
