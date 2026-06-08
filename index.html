@@ -253,6 +253,7 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
   <input id="load-file" type="file" accept=".json,.circuit.json,application/json" style="display:none" onchange="loadCircuitFile(event)">
   <button class="tb-btn" onclick="exportSVG()">↓ SVG</button>
   <button class="tb-btn" id="btn-export-png" onclick="openPngSaveDialog(event)">↓ PNG</button>
+  <button class="tb-btn" onclick="exportNetlist()">↓ SPICE</button>
   <button class="tb-btn danger" onclick="clearAll()">✕ 全消去</button>
 </div>
 
@@ -775,7 +776,7 @@ function renderComp(c){
 
   if(c.ref){
     const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x','0'); t.setAttribute('y','-34');
+    t.setAttribute('x','0'); t.setAttribute('y', String(-(DEFS[c.type].h/2 + 12)));
     t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11');
     t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
     t.setAttribute('fill','#111'); t.setAttribute('font-weight','600');
@@ -784,7 +785,7 @@ function renderComp(c){
   }
   if(c.value){
     const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-    t.setAttribute('x','0'); t.setAttribute('y','42');
+    t.setAttribute('x','0'); t.setAttribute('y', String(DEFS[c.type].h/2 + 14));
     t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10');
     t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
     t.setAttribute('fill','#555');
@@ -5397,7 +5398,7 @@ renderAll();
     if(sh.strokeColor === undefined) sh.strokeColor = sh.color || currentColor || BLACK;
     if(sh.fillColor === undefined) sh.fillColor = sh.filled ? (sh.color || currentColor || BLACK) : '#ffffff';
     if(sh.fillEnabled === undefined) sh.fillEnabled = !!sh.filled;
-    if(sh.strokeWidth === undefined) sh.strokeWidth = 1.6;
+    if(sh.strokeWidth === undefined) sh.strokeWidth = (typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6);
   }
 
   // Palette: remove duplicate filled/unfilled entries and keep one per figure.
@@ -5445,7 +5446,7 @@ renderAll();
     sh.fillEnabled = false;
     sh.fillColor = '#ffffff';
     sh.strokeColor = currentColor || BLACK;
-    sh.strokeWidth = 1.6;
+    sh.strokeWidth = (typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6);
     sh.filled = false;
     sh.color = sh.strokeColor;
     if(kind === 'double-arrow'){
@@ -5790,7 +5791,7 @@ renderAll();
     if(sh.strokeColor === undefined) sh.strokeColor = sh.color || currentColor || BLACK;
     if(sh.fillColor === undefined) sh.fillColor = sh.filled ? (sh.color || currentColor || BLACK) : '#ffffff';
     if(sh.fillEnabled === undefined) sh.fillEnabled = !!sh.filled;
-    if(sh.strokeWidth === undefined) sh.strokeWidth = 1.6;
+    if(sh.strokeWidth === undefined) sh.strokeWidth = (typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6);
 
     const body = document.getElementById('prop-body');
     if(!body) return;
@@ -5903,7 +5904,7 @@ renderAll();
     if(sh.strokeColor === undefined) sh.strokeColor = sh.color || currentColor || BLACK;
     if(sh.fillColor === undefined) sh.fillColor = sh.filled ? (sh.color || currentColor || BLACK) : '#ffffff';
     if(sh.fillEnabled === undefined) sh.fillEnabled = !!sh.filled;
-    if(sh.strokeWidth === undefined) sh.strokeWidth = 1.6;
+    if(sh.strokeWidth === undefined) sh.strokeWidth = (typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6);
   }
   function setShapeColorOnly(key, color){
     const sh = selectedShape();
@@ -6152,7 +6153,7 @@ renderAll();
     if(sh.strokeColor === undefined) sh.strokeColor = sh.color || currentColor || '#1a1a1a';
     if(sh.fillColor === undefined) sh.fillColor = sh.filled ? (sh.color || currentColor || '#1a1a1a') : '#ffffff';
     if(sh.fillEnabled === undefined) sh.fillEnabled = !!sh.filled;
-    if(sh.strokeWidth === undefined) sh.strokeWidth = 1.6;
+    if(sh.strokeWidth === undefined) sh.strokeWidth = (typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6);
   }
   function applyShapeColor(key, value, options={}){
     const color = normalizeHex(value);
@@ -8534,7 +8535,7 @@ body.wire-mode #canvas * {
     labelG.setAttribute('transform', `rotate(0)`);
     if(c.ref){
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.setAttribute('x','0'); t.setAttribute('y', String(-34 * sz));
+      t.setAttribute('x','0'); t.setAttribute('y', String(-(DEFS[c.type].h/2 * sz + 12)));
       t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11');
       t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
       t.setAttribute('fill','#111'); t.setAttribute('font-weight','600');
@@ -8542,7 +8543,7 @@ body.wire-mode #canvas * {
     }
     if(c.value){
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-      t.setAttribute('x','0'); t.setAttribute('y', String(42 * sz));
+      t.setAttribute('x','0'); t.setAttribute('y', String(DEFS[c.type].h/2 * sz + 14));
       t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10');
       t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
       t.setAttribute('fill','#555');
@@ -8661,8 +8662,8 @@ body.wire-mode #canvas * {
     const sz = compSize(c);
     const color = c.color || currentColor || '#1a1a1a';
     let out = `<g transform="translate(${c.x},${c.y}) rotate(${c.rotation||0}) scale(${sx*sz},${sz})">${compSVG(c.type, color)}</g>`;
-    if(c.ref){ out += `<text x="${c.x}" y="${c.y - 34*sz}" text-anchor="middle" font-size="11" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#111" font-weight="600">${esc(c.ref)}</text>`; }
-    if(c.value){ out += `<text x="${c.x}" y="${c.y + 42*sz}" text-anchor="middle" font-size="10" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#555">${esc(c.value)}</text>`; }
+    if(c.ref){ out += `<text x="${c.x}" y="${c.y - (DEFS[c.type].h/2*sz+12)}" text-anchor="middle" font-size="11" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#111" font-weight="600">${esc(c.ref)}</text>`; }
+    if(c.value){ out += `<text x="${c.x}" y="${c.y + (DEFS[c.type].h/2*sz+14)}" text-anchor="middle" font-size="10" font-family="'Yu Gothic','YuGothic','Meiryo',sans-serif" fill="#555">${esc(c.value)}</text>`; }
     return out;
   };
 
@@ -9711,7 +9712,7 @@ body.wire-mode #canvas * {
     const labelG = document.createElementNS(SVGNS, 'g');
     if(c.ref){
       const t = document.createElementNS(SVGNS, 'text');
-      t.setAttribute('x','0'); t.setAttribute('y', String(-34 * sz));
+      t.setAttribute('x','0'); t.setAttribute('y', String(-(DEFS[c.type].h/2 * sz + 12)));
       t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','11');
       t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
       t.setAttribute('fill','#111'); t.setAttribute('font-weight','600');
@@ -9719,7 +9720,7 @@ body.wire-mode #canvas * {
     }
     if(c.value){
       const t = document.createElementNS(SVGNS, 'text');
-      t.setAttribute('x','0'); t.setAttribute('y', String(42 * sz));
+      t.setAttribute('x','0'); t.setAttribute('y', String(DEFS[c.type].h/2 * sz + 14));
       t.setAttribute('text-anchor','middle'); t.setAttribute('font-size','10');
       t.setAttribute('font-family',"'Segoe UI',Arial,sans-serif");
       t.setAttribute('fill','#555');
@@ -9770,8 +9771,8 @@ body.wire-mode #canvas * {
     const color = escAttr(col(c));
     const body = safeSymbolSVG(c).replace(new RegExp(col(c).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), color);
     let labels = '';
-    if(c.ref) labels += `<text x="0" y="${-34 * sz}" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">${escAttr(c.ref)}</text>`;
-    if(c.value) labels += `<text x="0" y="${42 * sz}" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">${escAttr(c.value)}</text>`;
+    if(c.ref) labels += `<text x="0" y="${-(DEFS[c.type].h/2*sz+12)}" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">${escAttr(c.ref)}</text>`;
+    if(c.value) labels += `<text x="0" y="${DEFS[c.type].h/2*sz+14}" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">${escAttr(c.value)}</text>`;
     return `<g transform="translate(${c.x},${c.y})"><g transform="rotate(${c.rotation || 0}) scale(${sx},${sz})">${body}</g>${labels}</g>`;
   };
 
@@ -10033,6 +10034,15 @@ body.wire-mode #canvas * {
 
 <script id="dash-and-double-arrow">
 (function(){
+
+/* ===== 右クリックパン優先 ===== */
+document.getElementById('canvas-wrap').addEventListener('mousedown', function(e){
+  if(e.button !== 2) return;
+  e.stopImmediatePropagation();
+  panning = {clientX:e.clientX, clientY:e.clientY, viewX:viewX, viewY:viewY};
+  document.getElementById('canvas-wrap').classList.add('panning');
+}, true);
+
 var NS='http://www.w3.org/2000/svg';
 var BLACK='#1a1a1a';
 var SWATCHES=['#1a1a1a','#6b7280','#dc2626','#2563eb'];
@@ -10109,7 +10119,7 @@ document.getElementById('canvas').addEventListener('mousedown',function(e){
   var sh={id:'s'+(++sid),kind:'double-arrow',filled:false,x:snap(pt.x),y:snap(pt.y),
     rotation:typeof placingRotation!=='undefined'?placingRotation:0,flip:false,
     w:90,h:24,color:currentColor||BLACK,strokeColor:currentColor||BLACK,
-    fillColor:'#ffffff',fillEnabled:false,strokeWidth:1.6,strokeDash:'solid'};
+    fillColor:'#ffffff',fillEnabled:false,strokeWidth:(typeof window.getCircuitLineWidth==='function'?window.getCircuitLineWidth():1.6),strokeDash:'solid'};
   shapes.push(sh);selectedIds.clear();selectedWireId=null;selectedIds.add('shape:'+sh.id);
   renderAll();showProps();runChecks();cancelPlace();setTool('select');
 },true);
@@ -10120,7 +10130,7 @@ window.startPlaceShape=startPlaceShape=function(kind,filled){
   prevPlace(kind,filled);
   if(kind==='double-arrow'){
     var g=document.getElementById('ghost-g');
-    if(g) g.innerHTML=dasvg({w:90,h:24,color:currentColor||BLACK,strokeColor:currentColor||BLACK,strokeWidth:1.6});
+    if(g) g.innerHTML=dasvg({w:90,h:24,color:currentColor||BLACK,strokeColor:currentColor||BLACK,strokeWidth:(typeof window.getCircuitLineWidth==="function"?window.getCircuitLineWidth():1.6)});
   }
 };
 
@@ -10262,6 +10272,260 @@ window.renderAll=renderAll=function(){
 };
 
 renderAll();showProps();
+})();
+</script>
+<script id="netlist-export">
+(function(){
+  // SPICE ネットリスト出力
+  // 座標ベースでノードを解析し、Union-Find でネットを構成する
+
+  function ptKey(x, y){
+    return Math.round(x) + ',' + Math.round(y);
+  }
+
+  // Union-Find
+  function makeUF(){
+    var p = {};
+    function find(k){
+      if(!p[k]) p[k]=k;
+      if(p[k]!==k) p[k]=find(p[k]);
+      return p[k];
+    }
+    function union(a,b){
+      a=find(a); b=find(b);
+      if(a!==b) p[a]=b;
+    }
+    return {find:find, union:union, parent:p};
+  }
+
+  window.exportNetlist = function(){
+    if(!components || components.length === 0){
+      alert('部品がありません');
+      return;
+    }
+
+    var uf = makeUF();
+
+    // 全端子座標をノードとして登録
+    components.forEach(function(c){
+      if(typeof getTerms==='function'){
+        getTerms(c).forEach(function(t){ uf.find(ptKey(t.x,t.y)); });
+      }
+    });
+
+    // 配線で端子同士をつなぐ
+    // 配線端点に一致する端子があれば結合、なければ配線端点同士も結合
+    var SNAP = 3; // px以内を同じ点とみなす
+
+    function nearestNode(x, y){
+      // 端子座標から近い点を探す
+      var key = ptKey(x, y);
+      var best = null, bestD = SNAP;
+      components.forEach(function(c){
+        if(typeof getTerms==='function'){
+          getTerms(c).forEach(function(t){
+            var d = Math.hypot(t.x-x, t.y-y);
+            if(d <= bestD){ bestD=d; best=ptKey(t.x,t.y); }
+          });
+        }
+      });
+      // 既存の配線端点も探す
+      wires.forEach(function(w){
+        [[w.x1,w.y1],[w.x2,w.y2]].forEach(function(p){
+          var d=Math.hypot(p[0]-x,p[1]-y);
+          if(d<=bestD){ bestD=d; best=ptKey(p[0],p[1]); }
+        });
+      });
+      return best || key;
+    }
+
+    // 配線を全部結合（折れ線なので両端点を結合）
+    wires.forEach(function(w){
+      var a = nearestNode(w.x1, w.y1);
+      var b = nearestNode(w.x2, w.y2);
+      uf.union(a, b);
+    });
+
+    // ノード名を割り当て
+    // GNDタイプはノード名を "0" にする
+    var nodeMap = {}; // root -> name
+    var nodeCounter = 1;
+
+    function getNodeName(x, y){
+      var root = uf.find(nearestNode(x, y));
+      if(!nodeMap[root]){
+        nodeMap[root] = 'N' + (nodeCounter++);
+      }
+      return nodeMap[root];
+    }
+
+    // GND端子を先に "0" に設定
+    components.forEach(function(c){
+      if(c.type === 'gnd' && typeof getTerms==='function'){
+        var terms = getTerms(c);
+        if(terms.length > 0){
+          var root = uf.find(nearestNode(terms[0].x, terms[0].y));
+          nodeMap[root] = '0';
+        }
+      }
+    });
+    // VCC端子を "VCC" に
+    components.forEach(function(c){
+      if(c.type === 'vcc' && typeof getTerms==='function'){
+        var terms = getTerms(c);
+        if(terms.length > 0){
+          var root = uf.find(nearestNode(terms[0].x, terms[0].y));
+          if(!nodeMap[root]) nodeMap[root] = 'VCC';
+        }
+      }
+    });
+
+    // SPICE行を生成
+    var lines = [];
+    lines.push('* SPICE Netlist generated by Circuit Editor');
+    lines.push('* ' + new Date().toLocaleString());
+    lines.push('');
+
+    // 素子タイプ別のSPICE記法
+    // SPICE行: 部品名 ノード1 ノード2 ... 値
+    var refCountUsed = {};
+    function getRef(c){
+      if(c.ref && c.ref.trim()) return c.ref.trim();
+      var pre = (DEFS[c.type]||{}).pre || 'X';
+      if(!pre) pre = 'X';
+      refCountUsed[pre] = (refCountUsed[pre]||0)+1;
+      return pre + refCountUsed[pre];
+    }
+    function getVal(c){
+      return (c.value && c.value.trim()) ? c.value.trim() : '?';
+    }
+
+    components.forEach(function(c){
+      if(c.type === 'gnd' || c.type === 'vcc') return; // これらは素子でなくノード記号
+      var terms = typeof getTerms==='function' ? getTerms(c) : [];
+      var nodes = terms.map(function(t){ return getNodeName(t.x, t.y); });
+      var ref = getRef(c);
+      var val = getVal(c);
+
+      var line = '';
+      switch(c.type){
+        case 'resistor':    line = ref+' '+nodes[0]+' '+nodes[1]+' '+val; break;
+        case 'capacitor':
+        case 'electrolytic':line = ref+' '+nodes[0]+' '+nodes[1]+' '+val; break;
+        case 'inductor':    line = ref+' '+nodes[0]+' '+nodes[1]+' '+val; break;
+        case 'diode':
+        case 'led':         line = ref+' '+nodes[0]+' '+nodes[1]+' '+val; break;
+        case 'vsource':     // V name + -  value
+          line = ref+' '+nodes[0]+' '+nodes[1]+' DC '+val; break;
+        case 'isource':
+          line = ref+' '+nodes[0]+' '+nodes[1]+' DC '+val; break;
+        case 'acsource':
+          line = ref+' '+nodes[0]+' '+nodes[1]+' AC '+val; break;
+        case 'npn':  // Q name C B E model
+          // terms: B=nodes[0], C=nodes[1], E=nodes[2]
+          line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+val; break;
+        case 'pnp':
+          line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+val; break;
+        case 'nmos': // M name D G S B model
+          line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+nodes[2]+' '+val; break;
+        case 'pmos':
+          line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+nodes[2]+' '+val; break;
+        case 'opamp':
+          // + - OUT V+ V-
+          line = ref+' '+nodes[2]+' '+nodes[0]+' '+nodes[1]+' '+nodes[3]+' '+nodes[4]+' '+val; break;
+        case 'switch':
+          line = ref+' '+nodes[0]+' '+nodes[1]+' '+val; break;
+        case 'ic':
+        case 'connector':
+          // X subcircuit
+          line = 'X_'+ref+' '+nodes.join(' ')+' '+val; break;
+        default:
+          line = '* '+ref+' ('+c.type+') '+nodes.join(' ')+' '+val;
+      }
+      if(line) lines.push(line);
+    });
+
+    lines.push('');
+    lines.push('.end');
+
+    var netlist = lines.join('\n');
+
+    // ダイアログで確認してからダウンロード
+    _showNetlistDialog(netlist);
+  };
+
+
+  function _showNetlistDialog(netlist){
+    var old = document.getElementById('netlist-dialog-overlay');
+    if(old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'netlist-dialog-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+
+    var dlg = document.createElement('div');
+    dlg.style.cssText = 'background:#fff;border-radius:10px;padding:18px;width:min(96vw,560px);max-height:80vh;display:flex;flex-direction:column;gap:10px;box-shadow:0 12px 40px rgba(0,0,0,.25);font-family:Segoe UI,Meiryo,sans-serif';
+
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:14px;font-weight:700;color:#1e293b';
+    title.textContent = 'SPICE ネットリスト';
+
+    var note = document.createElement('div');
+    note.style.cssText = 'font-size:11px;color:#64748b;line-height:1.5';
+    note.textContent = '※ 接続されていない端子は未接続ノードになります。値（抵抗値・電圧など）は部品プロパティの「値」欄から取得しています。';
+
+    var ta = document.createElement('textarea');
+    ta.value = netlist;
+    ta.readOnly = true;
+    ta.style.cssText = 'width:100%;flex:1;min-height:220px;font-family:Consolas,monospace;font-size:12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;resize:vertical;outline:none;background:#f8fafc;color:#1e293b;box-sizing:border-box';
+
+    var btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+
+    var copyBtn = document.createElement('button');
+    copyBtn.textContent = 'コピー';
+    copyBtn.style.cssText = 'padding:7px 14px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;background:#fff;font-size:12px';
+    copyBtn.onclick = function(){
+      navigator.clipboard.writeText(netlist).then(function(){
+        copyBtn.textContent = 'コピーしました！';
+        setTimeout(function(){ copyBtn.textContent = 'コピー'; }, 1500);
+      }).catch(function(){
+        ta.select(); document.execCommand('copy');
+        copyBtn.textContent = 'コピーしました！';
+        setTimeout(function(){ copyBtn.textContent = 'コピー'; }, 1500);
+      });
+    };
+
+    var dlBtn = document.createElement('button');
+    dlBtn.textContent = '↓ .cir 保存';
+    dlBtn.style.cssText = 'padding:7px 14px;border:1px solid #2563eb;border-radius:6px;cursor:pointer;background:#2563eb;color:#fff;font-size:12px;font-weight:600';
+    dlBtn.onclick = function(){
+      var blob = new Blob([netlist], {type:'text/plain'});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'circuit.cir';
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+    };
+
+    var closeBtn = document.createElement('button');
+    closeBtn.textContent = '閉じる';
+    closeBtn.style.cssText = 'padding:7px 14px;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;background:#fff;font-size:12px';
+    closeBtn.onclick = function(){ overlay.remove(); };
+    overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+
+    btns.appendChild(copyBtn);
+    btns.appendChild(dlBtn);
+    btns.appendChild(closeBtn);
+    dlg.appendChild(title);
+    dlg.appendChild(note);
+    dlg.appendChild(ta);
+    dlg.appendChild(btns);
+    overlay.appendChild(dlg);
+    document.body.appendChild(overlay);
+    setTimeout(function(){ ta.focus(); ta.select(); }, 50);
+  }
+
 })();
 </script>
 </body>
