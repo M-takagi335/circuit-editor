@@ -225,6 +225,51 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
 }
 </style>
 
+
+
+<style id="ios-toolbar-color-size-fix">
+/* iPad/iPhoneなど幅が限られる環境で、回路色ボタンがflex縮小で細く潰れないように固定する。 */
+#toolbar .color-swatch{
+  flex:0 0 18px;
+  min-width:18px;
+  max-width:18px;
+  width:18px;
+  height:18px;
+  line-height:0;
+}
+#toolbar #custom-color{
+  flex:0 0 32px;
+  min-width:32px;
+  max-width:32px;
+  width:32px;
+  height:24px;
+  padding:1px 2px;
+}
+#toolbar .tb-btn,
+#toolbar .tb-sep,
+#toolbar > span,
+#toolbar .toolbar-input{
+  flex-shrink:0;
+}
+@media (max-width:760px), (hover:none) and (pointer:coarse){
+  #toolbar .color-swatch{
+    flex:0 0 28px!important;
+    min-width:28px!important;
+    max-width:28px!important;
+    width:28px!important;
+    height:28px!important;
+  }
+  #toolbar #custom-color{
+    flex:0 0 36px!important;
+    min-width:36px!important;
+    max-width:36px!important;
+    width:36px!important;
+    height:28px!important;
+    padding:1px!important;
+  }
+}
+</style>
+
 </head>
 <body>
 
