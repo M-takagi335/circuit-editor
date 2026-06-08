@@ -10659,6 +10659,54 @@ renderAll();showProps();
 })();
 </script>
 
+
+
+<script id="png-dash-selfclosing-attribute-fix-final">
+// Fix: 図形の破線/点線があるとPNG保存に失敗する問題を修正。
+// 以前の線種パッチが <line .../> に属性を後付けする際、
+// <line .../ stroke-dasharray="..."> のような不正SVGになる場合があったため、
+// 表示用SVGとSVG/PNG書き出し用SVGの両方で自己終了タグの属性位置を正規化する。
+(function(){
+  function fixAttrsAfterSelfClosingSlash(markup){
+    return String(markup || '').replace(/<([A-Za-z][\w:.-]*)([^<>]*?)\/\s+([^<>]*?)>/g, function(_, tag, attrs, lateAttrs){
+      return '<' + tag + attrs + ' ' + String(lateAttrs || '').trim() + '/>';
+    });
+  }
+
+  function normalizeSvgMarkupObject(out){
+    if(out && typeof out.svg === 'string'){
+      out.svg = fixAttrsAfterSelfClosingSlash(out.svg);
+    }
+    return out;
+  }
+
+  var prevShapeSvgDashPngFix = window.shapeSVG || (typeof shapeSVG === 'function' ? shapeSVG : null);
+  if(typeof prevShapeSvgDashPngFix === 'function'){
+    window.shapeSVG = shapeSVG = function(sh){
+      return fixAttrsAfterSelfClosingSlash(prevShapeSvgDashPngFix(sh));
+    };
+  }
+
+  var prevExportSvgDashPngFix = window.exportSvgMarkup || (typeof exportSvgMarkup === 'function' ? exportSvgMarkup : null);
+  if(typeof prevExportSvgDashPngFix === 'function'){
+    window.exportSvgMarkup = exportSvgMarkup = function(){
+      return normalizeSvgMarkupObject(prevExportSvgDashPngFix.apply(this, arguments));
+    };
+  }
+
+  var prevOpenPngSaveDialogDashPngFix = window.openPngSaveDialog;
+  if(typeof prevOpenPngSaveDialogDashPngFix === 'function'){
+    window.openPngSaveDialog = function(ev){
+      // exportSvgMarkup は上で正規化済み。既存のファイル名ダイアログや保存UIはそのまま使う。
+      return prevOpenPngSaveDialogDashPngFix.call(this, ev);
+    };
+  }
+
+  if(typeof renderAll === 'function'){
+    try{ renderAll(); }catch(e){ console.warn('dash PNG final render normalize failed', e); }
+  }
+})();
+</script>
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
