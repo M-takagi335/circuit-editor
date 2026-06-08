@@ -90,7 +90,8 @@ body.wire-mode #canvas-wrap, body.wire-mode #canvas{cursor:crosshair!important}
 #canvas-wrap.panning{cursor:grabbing!important}
 #canvas-wrap.pan-ready{cursor:grab!important}
 .color-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.color-swatch{width:18px;height:18px;border:1px solid #777;border-radius:3px;cursor:pointer;background:var(--c)}
+.color-swatch{width:22px;height:22px;border:1px solid #777;border-radius:3px;cursor:pointer;padding:0;-webkit-appearance:none;appearance:none;display:inline-block;vertical-align:middle}
+@media(max-width:760px){.color-swatch{width:30px;height:30px;border-radius:5px}}
 .color-swatch.active{outline:2px solid #3b82f6;outline-offset:1px}
 .toolbar-input{height:24px;border:1px solid #555;background:#2a2f36;color:#eee;border-radius:4px;font-size:11px;padding:2px 4px}
 .text-font-jp{font-family:'Yu Gothic','YuGothic','游ゴシック体','Meiryo',sans-serif}
@@ -11180,3 +11181,32 @@ renderAll();showProps();
 })();
 </script>
 
+<script>
+/* iOS Safari は button 要素で background:var(--c) が効かないため、
+   --c が設定・変更されるたびに background-color を直接同期するパッチ */
+(function(){
+  function syncSwatchColors(){
+    document.querySelectorAll('.color-swatch').forEach(function(el){
+      var match = el.getAttribute('style') && el.getAttribute('style').match(/--c:\s*([^;]+)/);
+      if(match) el.style.backgroundColor = match[1].trim();
+    });
+  }
+  document.addEventListener('DOMContentLoaded', syncSwatchColors);
+  // MutationObserverでstyle属性変化・要素追加時も同期
+  document.addEventListener('DOMContentLoaded', function(){
+    var observer = new MutationObserver(function(mutations){
+      var needSync = false;
+      mutations.forEach(function(m){
+        if(m.type==='attributes' && m.attributeName==='style' &&
+           m.target.classList && m.target.classList.contains('color-swatch')) needSync = true;
+        m.addedNodes.forEach(function(n){
+          if(n.nodeType===1) needSync = true;
+        });
+      });
+      if(needSync) syncSwatchColors();
+    });
+    observer.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['style']});
+    syncSwatchColors();
+  });
+})();
+</script>
