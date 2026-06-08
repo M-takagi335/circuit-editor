@@ -10841,6 +10841,82 @@ renderAll();showProps();
   }
 })();
 </script>
+
+
+<script id="pc-file-save-picker-override">
+// PC対応: 対応ブラウザでは保存先を選ぶ「名前を付けて保存」ダイアログを開く。
+// 非対応ブラウザでは従来どおりダウンロード保存に自動フォールバックする。
+(function(){
+  function sanitizeFileName(name, ext){
+    name = String(name || '').trim() || 'circuit';
+    name = name.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim();
+    if(!name.toLowerCase().endsWith(ext.toLowerCase())) name += ext;
+    return name;
+  }
+
+  function makeCircuitSaveData(){
+    if(typeof fitAllLabels === 'function') fitAllLabels();
+    const lineWidth = (typeof getLineWidth === 'function') ? getLineWidth()
+      : ((typeof window.getCircuitLineWidth === 'function') ? window.getCircuitLineWidth()
+      : (window.circuitLineWidth || 1.6));
+    return {
+      version: 'circuit-editor-json-v1',
+      components, wires, junctions, mathLabels, shapes,
+      counters: {cid, wid, jid, mid, sid},
+      view: {viewX, viewY, viewScale},
+      settings: {circuitLineWidth: lineWidth}
+    };
+  }
+
+  function downloadFallback(text, filename){
+    const blob = new Blob([text], {type:'application/json;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  async function saveWithPicker(text, filename){
+    const handle = await window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [{
+        description: '回路ファイル JSON',
+        accept: {'application/json': ['.json', '.circuit.json']}
+      }]
+    });
+    const writable = await handle.createWritable();
+    await writable.write(new Blob([text], {type:'application/json;charset=utf-8'}));
+    await writable.close();
+  }
+
+  window.saveCircuitFile = saveCircuitFile = async function(){
+    const filename = sanitizeFileName('circuit.circuit.json', '.json');
+    const text = JSON.stringify(makeCircuitSaveData(), null, 2);
+
+    if(window.showSaveFilePicker && window.isSecureContext){
+      try{
+        await saveWithPicker(text, filename);
+        return;
+      }catch(err){
+        // ユーザーがキャンセルした場合は何もしない。
+        if(err && (err.name === 'AbortError' || err.name === 'SecurityError')) return;
+        console.error(err);
+        alert('保存先の選択に失敗したため、通常のダウンロード保存に切り替えます。');
+      }
+    }
+
+    // Firefox/Safari、一部スマホ、file://で開いた場合などはこちらになる。
+    const pickedName = (typeof askFilename === 'function') ? askFilename('circuit.circuit.json', '.json')
+      : (prompt('保存名を入力してください', 'circuit.circuit.json'));
+    if(pickedName === null) return;
+    downloadFallback(text, sanitizeFileName(pickedName, '.json'));
+  };
+})();
+</script>
+
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
@@ -11606,3 +11682,232 @@ renderAll();showProps();
 })();
 </script>
 
+
+
+<script id="pc-save-picker-svg-png-final-override">
+// PC対応: 回路JSON/SVG/PNGを、対応ブラウザでは保存先を選んで保存する最終上書き。
+// 非対応環境では従来どおりダウンロード保存に戻す。
+(function(){
+  if(window.__pcSavePickerSvgPngFinalOverrideInstalled) return;
+  window.__pcSavePickerSvgPngFinalOverrideInstalled = true;
+
+  function hasSavePicker(){
+    return !!(window.showSaveFilePicker && window.isSecureContext);
+  }
+
+  function sanitizeName(name, ext, fallback){
+    var filename = String(name || fallback || ('circuit' + ext)).trim() || (fallback || ('circuit' + ext));
+    filename = filename.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim();
+    if(!filename.toLowerCase().endsWith(ext.toLowerCase())) filename += ext;
+    return filename;
+  }
+
+  function blobDownloadFallback(blob, filename){
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  function textDownloadFallback(text, type, filename){
+    blobDownloadFallback(new Blob([text], {type:type}), filename);
+  }
+
+  async function saveBlobWithPicker(blob, suggestedName, description, accept){
+    var handle = await window.showSaveFilePicker({
+      suggestedName: suggestedName,
+      types: [{description: description, accept: accept}]
+    });
+    var writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+  }
+
+  function isPickerCancel(err){
+    return err && (err.name === 'AbortError' || err.name === 'SecurityError' || err.name === 'NotAllowedError');
+  }
+
+  function makeCircuitSaveDataFinal(){
+    if(typeof fitAllLabels === 'function') fitAllLabels();
+    var lineWidth = (typeof getLineWidth === 'function') ? getLineWidth()
+      : ((typeof window.getCircuitLineWidth === 'function') ? window.getCircuitLineWidth()
+      : (window.circuitLineWidth || 1.6));
+    return {
+      version: 'circuit-editor-json-v1',
+      components: components,
+      wires: wires,
+      junctions: junctions,
+      mathLabels: mathLabels,
+      shapes: shapes,
+      counters: {cid: cid, wid: wid, jid: jid, mid: mid, sid: sid},
+      view: {viewX: viewX, viewY: viewY, viewScale: viewScale},
+      settings: {circuitLineWidth: lineWidth}
+    };
+  }
+
+  function hasDrawableContentFinal(){
+    return (Array.isArray(components) && components.length > 0) ||
+           (Array.isArray(wires) && wires.length > 0) ||
+           (Array.isArray(junctions) && junctions.length > 0) ||
+           (Array.isArray(mathLabels) && mathLabels.length > 0) ||
+           (Array.isArray(shapes) && shapes.length > 0);
+  }
+
+  function safePngScaleFinal(width, height){
+    var dpr = Math.max(1, window.devicePixelRatio || 1);
+    var scale = Math.min(6, Math.max(4, Math.ceil(dpr * 2)));
+    var maxPixels = 36000000;
+    while(width * height * scale * scale > maxPixels && scale > 2) scale -= 1;
+    return scale;
+  }
+
+  function canvasToBlobFinal(canvas){
+    return new Promise(function(resolve, reject){
+      if(canvas.toBlob){
+        canvas.toBlob(function(blob){
+          if(blob) resolve(blob);
+          else reject(new Error('PNG Blobの作成に失敗しました'));
+        }, 'image/png');
+        return;
+      }
+      try{
+        var dataUrl = canvas.toDataURL('image/png');
+        var bin = atob(dataUrl.split(',')[1]);
+        var bytes = new Uint8Array(bin.length);
+        for(var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        resolve(new Blob([bytes], {type:'image/png'}));
+      }catch(err){ reject(err); }
+    });
+  }
+
+  async function makePngBlobFinal(){
+    var out = exportSvgMarkup();
+    if(!out || !out.svg || !out.W || !out.H) throw new Error('出力範囲を作成できませんでした');
+    var scale = safePngScaleFinal(out.W, out.H);
+    var svgBlob = new Blob([out.svg], {type:'image/svg+xml;charset=utf-8'});
+    var url = URL.createObjectURL(svgBlob);
+    try{
+      var img = new Image();
+      await new Promise(function(resolve, reject){
+        img.onload = resolve;
+        img.onerror = function(){ reject(new Error('SVGの画像化に失敗しました')); };
+        img.src = url;
+      });
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(out.W * scale);
+      canvas.height = Math.ceil(out.H * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, out.W, out.H);
+      ctx.drawImage(img, 0, 0, out.W, out.H);
+      return {blob: await canvasToBlobFinal(canvas), filename: 'circuit_' + scale + 'x.png'};
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  window.saveCircuitFile = saveCircuitFile = async function(){
+    var filename = 'circuit.circuit.json';
+    var text = JSON.stringify(makeCircuitSaveDataFinal(), null, 2);
+    var blob = new Blob([text], {type:'application/json;charset=utf-8'});
+    if(hasSavePicker()){
+      try{
+        await saveBlobWithPicker(blob, filename, '回路ファイル JSON', {'application/json': ['.json', '.circuit.json']});
+        return;
+      }catch(err){
+        if(isPickerCancel(err)) return;
+        console.error(err);
+        alert('保存先の選択に失敗したため、通常のダウンロード保存に切り替えます。');
+      }
+    }
+    var picked = (typeof askFilename === 'function') ? askFilename(filename, '.json') : prompt('保存名を入力してください', filename);
+    if(picked === null) return;
+    textDownloadFallback(text, 'application/json;charset=utf-8', sanitizeName(picked, '.json', filename));
+  };
+
+  window.exportSVG = exportSVG = async function(){
+    if(!hasDrawableContentFinal()){
+      alert('出力する内容がありません');
+      return;
+    }
+    var out = exportSvgMarkup();
+    if(!out || !out.svg){
+      alert('SVG出力に失敗しました。');
+      return;
+    }
+    var text = String(out.svg).replace(/<br>/g, '<br/>');
+    var filename = 'circuit.svg';
+    var blob = new Blob([text], {type:'image/svg+xml;charset=utf-8'});
+    if(hasSavePicker()){
+      try{
+        await saveBlobWithPicker(blob, filename, 'SVG画像', {'image/svg+xml': ['.svg']});
+        return;
+      }catch(err){
+        if(isPickerCancel(err)) return;
+        console.error(err);
+        alert('SVGの保存先選択に失敗したため、通常のダウンロード保存に切り替えます。');
+      }
+    }
+    var picked = (typeof askFilename === 'function') ? askFilename(filename, '.svg') : prompt('保存名を入力してください', filename);
+    if(picked === null) return;
+    textDownloadFallback(text, 'image/svg+xml;charset=utf-8', sanitizeName(picked, '.svg', filename));
+  };
+
+  async function exportPngWithPickerFinal(){
+    if(!hasDrawableContentFinal()){
+      alert('出力する内容がありません');
+      return;
+    }
+    var png;
+    try{
+      png = await makePngBlobFinal();
+    }catch(err){
+      console.error(err);
+      alert('PNG出力に失敗しました。SVG出力を使うか、図を少し小さくして再度PNGを試してください。');
+      return;
+    }
+    if(hasSavePicker()){
+      try{
+        await saveBlobWithPicker(png.blob, png.filename, 'PNG画像', {'image/png': ['.png']});
+        return;
+      }catch(err){
+        if(isPickerCancel(err)) return;
+        console.error(err);
+        alert('PNGの保存先選択に失敗したため、通常のダウンロード保存に切り替えます。');
+      }
+    }
+    var picked = (typeof askFilename === 'function') ? askFilename(png.filename, '.png') : prompt('保存名を入力してください', png.filename);
+    if(picked === null) return;
+    blobDownloadFallback(png.blob, sanitizeName(picked, '.png', png.filename));
+  }
+
+  window.openPngSaveDialog = function(e){
+    if(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
+    exportPngWithPickerFinal();
+    return false;
+  };
+  window.exportPNG = exportPNG = exportPngWithPickerFinal;
+
+  function bindFinalPngButton(){
+    var btn = document.getElementById('btn-export-png') || Array.prototype.slice.call(document.querySelectorAll('button')).find(function(b){ return (b.textContent || '').trim() === '↓ PNG'; });
+    if(!btn) return;
+    btn.id = 'btn-export-png';
+    btn.setAttribute('onclick', 'return openPngSaveDialog(event)');
+    if(btn.__pcSavePickerPngFinalClick) return;
+    btn.__pcSavePickerPngFinalClick = true;
+    btn.addEventListener('click', function(e){ return window.openPngSaveDialog(e); }, true);
+  }
+
+  bindFinalPngButton();
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindFinalPngButton);
+  window.addEventListener('load', bindFinalPngButton);
+})();
+</script>
