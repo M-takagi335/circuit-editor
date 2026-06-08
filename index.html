@@ -346,6 +346,7 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
       <div class="pal-item" id="pal-shape-circle" onclick="startPlaceShape('circle',false)"><svg class="pal-icon" viewBox="0 0 40 28"><circle cx="20" cy="14" r="10" fill="none" stroke="#333" stroke-width="1.5"/></svg><span class="pal-name">〇 枠</span></div>
       <div class="pal-item" id="pal-shape-circle-fill" onclick="startPlaceShape('circle',true)"><svg class="pal-icon" viewBox="0 0 40 28"><circle cx="20" cy="14" r="10" fill="#333" stroke="#333" stroke-width="1.5"/></svg><span class="pal-name">● 塗り</span></div>
       <div class="pal-item" id="pal-shape-arrow" onclick="startPlaceShape('arrow',false)"><svg class="pal-icon" viewBox="0 0 40 28"><line x1="7" y1="14" x2="31" y2="14" stroke="#333" stroke-width="1.8"/><polygon points="31,14 24,9 24,19" fill="#333"/></svg><span class="pal-name">矢印</span></div>
+      <div class="pal-item" id="pal-shape-double-arrow" onclick="startPlaceShape('double-arrow',false)"><svg class="pal-icon" viewBox="0 0 40 28"><line x1="10" y1="14" x2="30" y2="14" stroke="#333" stroke-width="1.8"/><polygon points="7,14 13,10 13,18" fill="#333"/><polygon points="33,14 27,10 27,18" fill="#333"/></svg><span class="pal-name">両矢印</span></div>
       <div class="pal-item" id="pal-shape-star" onclick="startPlaceShape('star',false)"><svg class="pal-icon" viewBox="0 0 40 28"><polygon points="20,3 24,11 34,11 26,17 29,25 20,20 11,25 14,17 6,11 16,11" fill="none" stroke="#333" stroke-width="1.3"/></svg><span class="pal-name">☆ 枠</span></div>
       <div class="pal-item" id="pal-shape-star-fill" onclick="startPlaceShape('star',true)"><svg class="pal-icon" viewBox="0 0 40 28"><polygon points="20,3 24,11 34,11 26,17 29,25 20,20 11,25 14,17 6,11 16,11" fill="#333" stroke="#333" stroke-width="1.3"/></svg><span class="pal-name">★ 塗り</span></div>
       <div class="pal-item" id="pal-shape-line" onclick="startPlaceShape('line',false)"><svg class="pal-icon" viewBox="0 0 40 28"><line x1="7" y1="21" x2="33" y2="7" stroke="#333" stroke-width="1.8"/></svg><span class="pal-name">線</span></div>
@@ -494,16 +495,16 @@ const DEFS = {
   resistor:    {name:'抵抗',          w:70,  h:24,  terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}],              defVal:'', pre:'R'},
   capacitor:   {name:'コンデンサ',    w:44,  h:28,  terms:[{x:-22,y:0,id:'A'},{x:22,y:0,id:'B'}],              defVal:'', pre:'C'},
   electrolytic:{name:'電解コンデンサ',w:44,  h:28,  terms:[{x:-22,y:0,id:'+'},{x:22,y:0,id:'-'}],              defVal:'', pre:'C'},
-  inductor:    {name:'コイル',        w:86,  h:28,  terms:[{x:-43,y:0,id:'A'},{x:43,y:0,id:'B'}],              defVal:'', pre:'L'},
+  inductor:    {name:'コイル',        w:70,  h:28,  terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}],              defVal:'', pre:'L'},
   diode:       {name:'ダイオード',    w:44,  h:24,  terms:[{x:-22,y:0,id:'A'},{x:22,y:0,id:'K'}],              defVal:'', pre:'D'},
   led:         {name:'LED',           w:44,  h:24,  terms:[{x:-22,y:0,id:'A'},{x:22,y:0,id:'K'}],              defVal:'', pre:'D'},
-  npn:         {name:'NPN Tr',        w:68,  h:64,  terms:[{x:-34,y:0,id:'B'},{x:34,y:-26,id:'C'},{x:34,y:26,id:'E'}], defVal:'', pre:'Q'},
-  pnp:         {name:'PNP Tr',        w:68,  h:64,  terms:[{x:-34,y:0,id:'B'},{x:34,y:-26,id:'C'},{x:34,y:26,id:'E'}], defVal:'', pre:'Q'},
-  nmos:        {name:'NMOS',          w:68,  h:64,  terms:[{x:-34,y:0,id:'G'},{x:34,y:-26,id:'D'},{x:34,y:26,id:'S'}], defVal:'', pre:'M'},
-  pmos:        {name:'PMOS',          w:68,  h:64,  terms:[{x:-34,y:0,id:'G'},{x:34,y:-26,id:'D'},{x:34,y:26,id:'S'}], defVal:'', pre:'M'},
+  npn:         {name:'NPN Tr',        w:60,  h:60,  terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'},
+  pnp:         {name:'PNP Tr',        w:60,  h:60,  terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'},
+  nmos:        {name:'NMOS',          w:60,  h:60,  terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'},
+  pmos:        {name:'PMOS',          w:60,  h:60,  terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'},
   opamp:       {name:'オペアンプ',    w:80,  h:56,  terms:[{x:-40,y:-18,id:'+'},{x:-40,y:18,id:'-'},{x:40,y:0,id:'OUT'},{x:0,y:-28,id:'V+'},{x:0,y:28,id:'V-'}], defVal:'', pre:'U'},
-  vsource:     {name:'電圧源',        w:28,  h:60,  terms:[{x:0,y:-30,id:'+'},{x:0,y:30,id:'-'}],              defVal:'', pre:'V'},
-  isource:     {name:'電流源',        w:30,  h:60,  terms:[{x:0,y:-30,id:'+'},{x:0,y:30,id:'-'}],              defVal:'', pre:'I'},
+  vsource:     {name:'電圧源',        w:36,  h:70,  terms:[{x:0,y:-35,id:'+'},{x:0,y:35,id:'-'}],              defVal:'', pre:'V'},
+  isource:     {name:'電流源',        w:36,  h:60,  terms:[{x:0,y:-30,id:'+'},{x:0,y:30,id:'-'}],              defVal:'', pre:'I'},
   gnd:         {name:'GND',          w:36,  h:30,  terms:[{x:0,y:-15,id:'G'}],                                 defVal:'', pre:''},
   vcc:         {name:'VCC',          w:30,  h:30,  terms:[{x:0,y:15,id:'P'}],                                  defVal:'', pre:''},
   switch:      {name:'スイッチ',      w:56,  h:20,  terms:[{x:-28,y:0,id:'A'},{x:28,y:0,id:'B'}],              defVal:'', pre:'S'},
@@ -625,7 +626,7 @@ function compSVG(type, color=currentColor){
   const T = {
     resistor:`
       <line x1="-35" y1="0" x2="-18" y2="0" stroke="${color}" stroke-width="${sw}"/>
-      <rect x="-18" y="-10" width="36" height="20" rx="0" fill="white" stroke="${color}" stroke-width="${sw}"/>
+      <rect x="-18" y="-7" width="36" height="14" rx="0" fill="white" stroke="${color}" stroke-width="${sw}"/>
       <line x1="18" y1="0" x2="35" y2="0" stroke="${color}" stroke-width="${sw}"/>`,
     capacitor:`
       <line x1="-22" y1="0" x2="-5" y2="0" stroke="${color}" stroke-width="${sw}"/>
@@ -639,9 +640,9 @@ function compSVG(type, color=currentColor){
       <line x1="8" y1="0" x2="22" y2="0" stroke="${color}" stroke-width="${sw}"/>
       <text x="-8" y="-11" font-size="9" fill="${color}" text-anchor="middle">+</text>`,
     inductor:`
-      <line x1="-43" y1="0" x2="-34" y2="0" stroke="${color}" stroke-width="${sw}"/>
-      <path d="M-34 0 A8 8 0 0 1 -18 0 A8 8 0 0 1 -2 0 A8 8 0 0 1 14 0 A8 8 0 0 1 30 0" fill="none" stroke="${color}" stroke-width="${sw}"/>
-      <line x1="30" y1="0" x2="43" y2="0" stroke="${color}" stroke-width="${sw}"/>`,
+      <line x1="-35" y1="0" x2="-28" y2="0" stroke="${color}" stroke-width="${sw}"/>
+      <path d="M-28 0 A7 7 0 0 1 -14 0 A7 7 0 0 1 0 0 A7 7 0 0 1 14 0 A7 7 0 0 1 28 0" fill="none" stroke="${color}" stroke-width="${sw}"/>
+      <line x1="28" y1="0" x2="35" y2="0" stroke="${color}" stroke-width="${sw}"/>`,
     diode:`
       <line x1="-22" y1="0" x2="-10" y2="0" stroke="${color}" stroke-width="${sw}"/>
       <polygon points="-10,-11 -10,11 10,0" fill="${color}"/>
@@ -1285,6 +1286,11 @@ canvasWrap.addEventListener('wheel', e => {
   viewScale *= factor;
   viewScale = Math.max(0.15, Math.min(8, viewScale));
   applyView();
+  // ゴースト表示中はズームに合わせてスケールを更新する
+  if(placingType || placingShape){
+    if(typeof moveGhost === 'function') moveGhost(e);
+    else if(typeof updateGhostRotation === 'function') updateGhostRotation();
+  }
 }, {passive:false});
 
 // Keyboard
@@ -2921,10 +2927,10 @@ renderAll();
   window.applyView = function(){ oldApplyView(); syncInlineEditor(); };
 
   // Better transistor / MOSFET definitions and symbols.
-  DEFS.npn = {name:'NPN Tr', w:70, h:84, terms:[{x:-34,y:0,id:'B'},{x:12,y:-36,id:'C'},{x:12,y:36,id:'E'}], defVal:'', pre:'Q'};
-  DEFS.pnp = {name:'PNP Tr', w:70, h:84, terms:[{x:-34,y:0,id:'B'},{x:12,y:-36,id:'C'},{x:12,y:36,id:'E'}], defVal:'', pre:'Q'};
-  DEFS.nmos = {name:'NMOS', w:70, h:84, terms:[{x:-34,y:0,id:'G'},{x:12,y:-36,id:'D'},{x:12,y:36,id:'S'}], defVal:'', pre:'M'};
-  DEFS.pmos = {name:'PMOS', w:70, h:84, terms:[{x:-34,y:0,id:'G'},{x:12,y:-36,id:'D'},{x:12,y:36,id:'S'}], defVal:'', pre:'M'};
+  DEFS.npn  = {name:'NPN Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'};
+  DEFS.pnp = {name:'PNP Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'};
+  DEFS.nmos = {name:'NMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
+  DEFS.pmos = {name:'PMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
 
   const oldCompSVG = window.compSVG;
   window.compSVG = function(type, color=currentColor){
@@ -3305,10 +3311,10 @@ renderAll();
   }
 
   // terminal arrangement matched to the reference image
-  DEFS.npn  = {name:'NPN Tr', w:72, h:84, terms:[{x:-34,y:0,id:'B'},{x:0,y:-36,id:'C'},{x:0,y:36,id:'E'}], defVal:'', pre:'Q'};
-  DEFS.pnp  = {name:'PNP Tr', w:72, h:84, terms:[{x:-34,y:0,id:'B'},{x:0,y:-36,id:'E'},{x:0,y:36,id:'C'}], defVal:'', pre:'Q'};
-  DEFS.nmos = {name:'NMOS',   w:72, h:84, terms:[{x:-34,y:0,id:'G'},{x:0,y:-36,id:'D'},{x:0,y:36,id:'S'}], defVal:'', pre:'M'};
-  DEFS.pmos = {name:'PMOS',   w:72, h:84, terms:[{x:-34,y:0,id:'G'},{x:0,y:-36,id:'D'},{x:0,y:36,id:'S'}], defVal:'', pre:'M'};
+  DEFS.npn  = {name:'NPN Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'};
+  DEFS.pnp  = {name:'PNP Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'};
+  DEFS.nmos = {name:'NMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
+  DEFS.pmos = {name:'PMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
 
   const prevCompSVG = window.compSVG;
   window.compSVG = function(type, color=currentColor){
@@ -3433,10 +3439,10 @@ renderAll();
   // ------------------------------------------------------------
   // Transistor / MOSFET: rebuilt to match the reference style
   // ------------------------------------------------------------
-  DEFS.npn  = {name:'NPN Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'C'},{x:0,y:38,id:'E'}], defVal:'', pre:'Q'};
-  DEFS.pnp  = {name:'PNP Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'E'},{x:0,y:38,id:'C'}], defVal:'', pre:'Q'};
-  DEFS.nmos = {name:'NMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
-  DEFS.pmos = {name:'PMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
+  DEFS.npn  = {name:'NPN Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'};
+  DEFS.pnp  = {name:'PNP Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'};
+  DEFS.nmos = {name:'NMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
+  DEFS.pmos = {name:'PMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
 
   function arrowPolygon(tip, dir, color, size=9){
     const len = Math.hypot(dir.x, dir.y) || 1;
@@ -4105,6 +4111,9 @@ renderAll();
         : '文字を入力してください';
       input.style.fontFamily = mode === 'math' ? MATH_FONT : JP_FONT;
     }
+    // LaTeXモードは斜体をデフォルトON、文字モードはOFF
+    const italicEl = document.getElementById('math-italic');
+    if(italicEl) italicEl.checked = (mode === 'math');
     updateMathPreview();
   };
 
@@ -4135,7 +4144,7 @@ renderAll();
     if(underline) underline.checked = false;
     const align = document.getElementById('math-align');
     if(align) align.value = 'center';
-    setCreateTextMode('text');
+    setCreateTextMode('text'); // textモード開始 → italic=false が setCreateTextMode内で設定される
     updateMathPreview();
     setTimeout(()=>input?.focus(),0);
   };
@@ -4613,6 +4622,9 @@ renderAll();
         ? 'LaTeX例: V_{out}=\\frac{R_2}{R_1+R_2}V_{in}, x^2, x_{rms}, \\sqrt{x}, \\alpha'
         : '文字を入力してください';
     }
+    // LaTeXモードは斜体をデフォルトON、文字モードはOFF
+    const italicEl = document.getElementById('math-italic');
+    if(italicEl) italicEl.checked = (mode === 'math');
     updateMathPreview();
   };
 
@@ -4655,10 +4667,8 @@ renderAll();
     if(size) size.value = '18';
     const bold = document.getElementById('math-bold');
     if(bold) bold.checked = false;
-    const italic = document.getElementById('math-italic');
-    if(italic) italic.checked = false;
 
-    setTextCreateModeV9('math'); // LaTeXを使う目的が多いので初期タブを数式側にする
+    setTextCreateModeV9('math'); // LaTeXを使う目的が多いので初期タブを数式側にする（斜体も自動ON）
     updateMathPreview();
     setTimeout(()=>input?.focus(), 0);
   };
@@ -5067,10 +5077,11 @@ renderAll();
   const oldStartPlaceShapeV10 = window.startPlaceShape;
   window.startPlaceShape = function(kind, filled){
     oldStartPlaceShapeV10(kind, filled);
-    if(kind === 'line' || kind === 'arrow'){
+    if(kind === 'line' || kind === 'arrow' || kind === 'double-arrow'){
       const g = document.getElementById('ghost-g');
       if(g){
-        const preview = {kind, filled, w:kind==='arrow'?90:80, h:0, color:currentColor || BLACK};
+        const w = kind === 'arrow' || kind === 'double-arrow' ? 90 : 80;
+        const preview = {kind, filled, w, h: kind === 'double-arrow' ? 24 : 0, color: currentColor || BLACK, strokeColor: currentColor || BLACK, strokeWidth: 1.6};
         g.innerHTML = shapeSVG(preview);
       }
     }
@@ -5148,7 +5159,8 @@ renderAll();
     if(kind === 'line' || kind === 'arrow'){
       sh.w = kind === 'arrow' ? 90 : 80;
       sh.h = kind === 'arrow' ? 24 : 20;
-      sh.rotation = 0;
+      // placingRotation を引き継ぐ（0固定にしない）
+      sh.rotation = (typeof placingRotation !== 'undefined') ? (placingRotation || 0) : 0;
     }
     return sh;
   };
@@ -5428,14 +5440,18 @@ renderAll();
   setupShapePalette();
 
   const previousAddShape = window.addShape;
-  window.addShape = function(kind, filled, x, y){
-    const sh = previousAddShape(kind, false, x, y);
+  window.addShape = function(kind, filled, x, y, opts){
+    const sh = previousAddShape(kind, false, x, y, opts);
     sh.fillEnabled = false;
     sh.fillColor = '#ffffff';
     sh.strokeColor = currentColor || BLACK;
     sh.strokeWidth = 1.6;
     sh.filled = false;
     sh.color = sh.strokeColor;
+    if(kind === 'double-arrow'){
+      sh.w = sh.w || 90;
+      sh.h = 24;
+    }
     return sh;
   };
 
@@ -5537,7 +5553,7 @@ renderAll();
       const body = document.getElementById('prop-body');
 
       const b = shapeBox(sh);
-      const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'jump';
+      const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'double-arrow' || sh.kind === 'jump';
       const label = {
         rect:'四角形', triangle:'三角形', circle:'円', star:'星',
         line:'線', arrow:'矢印', jump:'浮き配線'
@@ -5779,7 +5795,7 @@ renderAll();
     const body = document.getElementById('prop-body');
     if(!body) return;
 
-    const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'jump';
+    const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'double-arrow' || sh.kind === 'jump';
 
     if(isLineLike){
       const len = Math.max(10, Number(sh.w) || (sh.kind === 'arrow' ? 90 : 80));
@@ -6002,7 +6018,7 @@ renderAll();
     if(!g) return g;
     ensureShapeStyle(sh);
 
-    const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'jump';
+    const isLineLike = sh.kind === 'line' || sh.kind === 'arrow' || sh.kind === 'double-arrow' || sh.kind === 'jump';
     const b = shapeBox(sh);
     const sw = Math.max(1.6, Number(sh.strokeWidth) || 1.6);
     let hit;
@@ -6425,7 +6441,7 @@ renderAll();
   Object.assign(DEFS, {
     capacitor:    {name:'コンデンサ',     w:50, h:30, terms:[{x:-25,y:0,id:'A'},{x:25,y:0,id:'B'}], defVal:'', pre:'C'},
     electrolytic: {name:'電解コンデンサ', w:50, h:30, terms:[{x:-25,y:0,id:'+'},{x:25,y:0,id:'-'}], defVal:'', pre:'C'},
-    inductor:     {name:'コイル',         w:90, h:30, terms:[{x:-45,y:0,id:'A'},{x:45,y:0,id:'B'}], defVal:'', pre:'L'},
+    inductor:     {name:'コイル',         w:70, h:28, terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}], defVal:'', pre:'L'},
     diode:        {name:'ダイオード',     w:50, h:25, terms:[{x:-25,y:0,id:'A'},{x:25,y:0,id:'K'}], defVal:'', pre:'D'},
     led:          {name:'LED',            w:50, h:25, terms:[{x:-25,y:0,id:'A'},{x:25,y:0,id:'K'}], defVal:'', pre:'D'},
     switch:       {name:'スイッチ',       w:60, h:25, terms:[{x:-30,y:0,id:'A'},{x:30,y:0,id:'B'}], defVal:'', pre:'S'}
@@ -6449,10 +6465,9 @@ renderAll();
         <text x="-8" y="-11" font-size="9" fill="${sc}" text-anchor="middle">+</text>`;
     }
     if(type === 'inductor'){
-      // 両端を±45にして、描画線も端子まで届かせる。GRID=5のため端子が必ずグリッド上に来る。
-      return `<line x1="-45" y1="0" x2="-35" y2="0" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>
-        <path d="M-35 0 A8.75 8.75 0 0 1 -17.5 0 A8.75 8.75 0 0 1 0 0 A8.75 8.75 0 0 1 17.5 0 A8.75 8.75 0 0 1 35 0" fill="none" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>
-        <line x1="35" y1="0" x2="45" y2="0" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>`;
+      return `<line x1="-35" y1="0" x2="-28" y2="0" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>
+        <path d="M-28 0 A7 7 0 0 1 -14 0 A7 7 0 0 1 0 0 A7 7 0 0 1 14 0 A7 7 0 0 1 28 0" fill="none" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>
+        <line x1="28" y1="0" x2="35" y2="0" stroke="${sc}" stroke-width="${sw}" stroke-linecap="round"/>`;
     }
     if(type === 'diode' || type === 'led'){
       const rays = type === 'led' ? `<line x1="12" y1="-14" x2="20" y2="-22" stroke="${sc}" stroke-width="1.2"/>
@@ -7696,7 +7711,7 @@ body.wire-mode #canvas * {
   // Add AC/DC power sources to palette and definitions.
   try{
     DEFS.dcsource = {name:'直流電源', w:44, h:70, terms:[{x:0,y:-35,id:'+'},{x:0,y:35,id:'-'}], defVal:'', pre:'V'};
-    DEFS.acsource = {name:'交流電源', w:44, h:70, terms:[{x:0,y:-35,id:'A'},{x:0,y:35,id:'B'}], defVal:'', pre:'V'};
+    DEFS.acsource = {name:'交流電源', w:40, h:60, terms:[{x:0,y:-30,id:'A'},{x:0,y:30,id:'B'}], defVal:'', pre:'V'};
     const palV = document.getElementById('pal-vsource');
     if(palV && !document.getElementById('pal-dcsource')){
       palV.insertAdjacentHTML('afterend',
@@ -8391,12 +8406,12 @@ body.wire-mode #canvas * {
   function isCompId(id){ return typeof id === 'string' && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:'); }
   function selectedComponents(){ return [...selectedIds].filter(isCompId).map(id => components.find(c => c.id === id)).filter(Boolean); }
 
-  // トランジスタ/MOS は抵抗・コンデンサと並べた時に大きく見えすぎないサイズへ調整。
+  // トランジスタ/MOS サイズを抵抗と同程度に統一 (最終パッチと同値)
   Object.assign(DEFS, {
-    npn:  {name:'NPN Tr', w:56, h:54, terms:[{x:-28,y:0,id:'B'},{x:28,y:-21,id:'C'},{x:28,y:21,id:'E'}], defVal:'', pre:'Q'},
-    pnp:  {name:'PNP Tr', w:56, h:54, terms:[{x:-28,y:0,id:'B'},{x:28,y:-21,id:'E'},{x:28,y:21,id:'C'}], defVal:'', pre:'Q'},
-    nmos: {name:'NMOS',   w:58, h:54, terms:[{x:-29,y:0,id:'G'},{x:29,y:-21,id:'D'},{x:29,y:21,id:'S'}], defVal:'', pre:'M'},
-    pmos: {name:'PMOS',   w:58, h:54, terms:[{x:-29,y:0,id:'G'},{x:29,y:-21,id:'D'},{x:29,y:21,id:'S'}], defVal:'', pre:'M'}
+    npn:  {name:'NPN Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'},
+    pnp:  {name:'PNP Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'},
+    nmos: {name:'NMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'},
+    pmos: {name:'PMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'}
   });
 
   const oldCompSVG = compSVG;
@@ -8700,19 +8715,21 @@ body.wire-mode #canvas * {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ----- transistor / MOSFET geometry: restored to reference shape only -----
-  DEFS.npn  = {name:'NPN Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'C'},{x:0,y:38,id:'E'}], defVal:'', pre:'Q'};
-  DEFS.pnp  = {name:'PNP Tr', w:80, h:88, terms:[{x:-36,y:0,id:'B'},{x:0,y:-38,id:'E'},{x:0,y:38,id:'C'}], defVal:'', pre:'Q'};
-  DEFS.nmos = {name:'NMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
-  DEFS.pmos = {name:'PMOS',   w:80, h:88, terms:[{x:-36,y:0,id:'G'},{x:0,y:-38,id:'D'},{x:0,y:38,id:'S'}], defVal:'', pre:'M'};
-  DEFS.acsource = {name:'交流電源', w:42, h:70, terms:[{x:0,y:-35,id:'A'},{x:0,y:35,id:'B'}], defVal:'', pre:'VAC'};
+  // ----- transistor / MOSFET geometry: sized to match resistor (~70px wide) -----
+  // 円 r=20、端子ピッチ ±26px → 全体幅約66px で抵抗(70px)と同程度に揃える
+  DEFS.npn  = {name:'NPN Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'C'},{x:0,y:26,id:'E'}], defVal:'', pre:'Q'};
+  DEFS.pnp  = {name:'PNP Tr', w:60, h:60, terms:[{x:-26,y:0,id:'B'},{x:0,y:-26,id:'E'},{x:0,y:26,id:'C'}], defVal:'', pre:'Q'};
+  DEFS.nmos = {name:'NMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
+  DEFS.pmos = {name:'PMOS',   w:60, h:60, terms:[{x:-26,y:0,id:'G'},{x:0,y:-26,id:'D'},{x:0,y:26,id:'S'}], defVal:'', pre:'M'};
+  DEFS.acsource = {name:'交流電源', w:42, h:60, terms:[{x:0,y:-30,id:'A'},{x:0,y:30,id:'B'}], defVal:'', pre:'VAC'};
 
-  function arrowPolygon(tip, dir, color, size=9){
+  // 線分上の点から矢印ポリゴンを生成。tip=矢印先端、dir=進行方向ベクトル
+  function arrowPolygon(tip, dir, color, size=7){
     const len = Math.hypot(dir.x, dir.y) || 1;
     const ux = dir.x / len, uy = dir.y / len;
     const px = -uy, py = ux;
     const bx = tip.x - ux * size, by = tip.y - uy * size;
-    const w = size * 0.58;
+    const w = size * 0.55;
     return `<polygon points="${tip.x},${tip.y} ${bx+px*w},${by+py*w} ${bx-px*w},${by-py*w}" fill="${color}"/>`;
   }
 
@@ -8720,60 +8737,67 @@ body.wire-mode #canvas * {
   window.compSVG = compSVG = function(type, color=currentColor){
     const c = color || '#1a1a1a';
     const sw = 1.6;
-    const circle = `<circle cx="0" cy="0" r="28" fill="white" stroke="${c}" stroke-width="${sw}"/>`;
+    // 円 r=20 で抵抗幅と同程度のサイズ感
+    const circle = `<circle cx="0" cy="0" r="20" fill="white" stroke="${c}" stroke-width="${sw}"/>`;
 
+    // NPN: ベース左(-26,0)、コレクタ上(0,-26)、エミッタ下(0,26)
+    // エミッタ線(-10,7)→(0,14)→(0,26) 上の矢印先端を(0,14)付近に置く
     if(type === 'npn') return `${circle}
-      <line x1="-36" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="-14" y1="-18" x2="-14" y2="18" stroke="${c}" stroke-width="2.8" stroke-linecap="round"/>
-      <polyline points="-14,-10 0,-22 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <polyline points="-14,10 0,22 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      ${arrowPolygon({x:-2,y:22},{x:14,y:12},c,9)}
+      <line x1="-26" y1="0" x2="-10" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-10" y1="-13" x2="-10" y2="13" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+      <polyline points="-10,-7 0,-15 0,-26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-10,7 0,15 0,26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      ${arrowPolygon({x:0,y:15},{x:10,y:8},c,7)}
     `;
+    // PNP: ベース左(-26,0)、エミッタ上(0,-26)、コレクタ下(0,26)
+    // エミッタ線上(-10,-7)→(0,-15) の中間点付近、矢印はベース板向き（内向き）
     if(type === 'pnp') return `${circle}
-      <line x1="-36" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="-14" y1="-18" x2="-14" y2="18" stroke="${c}" stroke-width="2.8" stroke-linecap="round"/>
-      <polyline points="-14,-10 0,-22 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <polyline points="-14,10 0,22 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      ${arrowPolygon({x:-13,y:-11},{x:-12,y:10},c,9)}
+      <line x1="-26" y1="0" x2="-10" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-10" y1="-13" x2="-10" y2="13" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+      <polyline points="-10,-7 0,-15 0,-26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-10,7 0,15 0,26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      ${arrowPolygon({x:-10,y:-7},{x:-10,y:8},c,7)}
     `;
+    // NMOS: ゲート左(-26,0)、ドレイン上(0,-26)、ソース下(0,26)
+    // ゲート板(-14)、チャンネル板(-5)、矢印はチャンネル→ボディ方向（右から左、x正→負）
     if(type === 'nmos') return `${circle}
-      <line x1="-36" y1="0" x2="-20" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="-20" y1="-18" x2="-20" y2="18" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="-8" y1="-20" x2="-8" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
-      <polyline points="-4,-20 0,-20 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <polyline points="-4,20 0,20 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <line x1="-4" y1="0" x2="12" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      ${arrowPolygon({x:12,y:0},{x:1,y:0},c,10)}
+      <line x1="-26" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-14" y1="-13" x2="-14" y2="13" stroke="${c}" stroke-width="2.0" stroke-linecap="round"/>
+      <line x1="-5" y1="-14" x2="-5" y2="-5" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="-5" y1="5"  x2="-5" y2="14"  stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+      <polyline points="-5,-10 0,-10 0,-26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-5,10  0,10  0,26"  fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="2" y1="0" x2="8" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      ${arrowPolygon({x:-5,y:0},{x:-13,y:0},c,7)}
     `;
     if(type === 'pmos') return `${circle}
-      <line x1="-36" y1="0" x2="-20" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="-20" y1="-18" x2="-20" y2="18" stroke="${c}" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="-8" y1="-20" x2="-8" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
-      <polyline points="-4,-20 0,-20 0,-38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <polyline points="-4,20 0,20 0,38" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
-      <line x1="-4" y1="0" x2="12" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      ${arrowPolygon({x:-4,y:0},{x:-1,y:0},c,10)}
+      <line x1="-26" y1="0" x2="-14" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-14" y1="-13" x2="-14" y2="13" stroke="${c}" stroke-width="2.0" stroke-linecap="round"/>
+      <line x1="-5" y1="-14" x2="-5" y2="-5" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="-5" y1="5"  x2="-5" y2="14"  stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
+      <polyline points="-5,-10 0,-10 0,-26" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="-5,10  0,10  0,26"  fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="-5" y1="0" x2="1" y2="0" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      ${arrowPolygon({x:8,y:0},{x:13,y:0},c,7)}
     `;
     if(type === 'vsource') return `
-      <line x1="0" y1="-34" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
-      <line x1="0" y1="22" x2="0" y2="34" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="0" y1="-10" x2="0" y2="2" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="-6" y1="-4" x2="6" y2="-4" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="-6" y1="10" x2="6" y2="10" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="0" y1="-35" x2="0" y2="-5" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="-16" y1="-5" x2="16" y2="-5" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="-9" y1="3" x2="9" y2="3" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="0" y1="3" x2="0" y2="35" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
     `;
     if(type === 'isource') return `
-      <line x1="0" y1="-34" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
-      <line x1="0" y1="22" x2="0" y2="34" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <line x1="0" y1="10" x2="0" y2="-8" stroke="${c}" stroke-width="1.4" stroke-linecap="round"/>
-      <polygon points="0,-12 -5,-2 5,-2" fill="${c}"/>
+      <line x1="0" y1="-30" x2="0" y2="-18" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="18" fill="white" stroke="${c}" stroke-width="${sw}"/>
+      <line x1="0" y1="18" x2="0" y2="30" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <line x1="0" y1="10" x2="0" y2="-6" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
+      <polygon points="0,-10 -4,-3 4,-3" fill="${c}"/>
     `;
     if(type === 'acsource') return `
-      <line x1="0" y1="-35" x2="0" y2="-22" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <circle cx="0" cy="0" r="22" fill="white" stroke="${c}" stroke-width="1.5"/>
-      <line x1="0" y1="22" x2="0" y2="35" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
-      <path d="M -12 2 C -8 -8, -2 -8, 2 2 S 12 12, 12 2" fill="none" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="0" y1="-30" x2="0" y2="-18" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <circle cx="0" cy="0" r="18" fill="white" stroke="${c}" stroke-width="${sw}"/>
+      <line x1="0" y1="18" x2="0" y2="30" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"/>
+      <path d="M -10 2 C -7 -7, -3 -7, 0 0 C 3 7, 7 7, 10 -2" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/>
     `;
     return previousCompSVG(type, color);
   };
@@ -8791,13 +8815,14 @@ body.wire-mode #canvas * {
     }
   }
   function refreshPaletteSymbols2(){
-    updatePaletteIcon('#pal-npn', window.compSVG('npn','#333'), '-34 -38 68 76');
-    updatePaletteIcon('#pal-pnp', window.compSVG('pnp','#333'), '-34 -38 68 76');
-    updatePaletteIcon('#pal-nmos', window.compSVG('nmos','#333'), '-34 -38 68 76');
-    updatePaletteIcon('#pal-pmos', window.compSVG('pmos','#333'), '-34 -38 68 76');
-    updatePaletteIcon('#pal-vsource', window.compSVG('vsource','#333'), '-26 -38 52 76');
-    updatePaletteIcon('#pal-isource', window.compSVG('isource','#333'), '-26 -38 52 76');
-    updatePaletteIcon('#pal-acsource', window.compSVG('acsource','#333'), '-26 -38 52 76');
+    // viewBox に合わせてパレットアイコンのサイズを新しい円 r=20 に揃える (-26 -26 52 52)
+    updatePaletteIcon('#pal-npn',  window.compSVG('npn', '#333'),  '-26 -26 52 52');
+    updatePaletteIcon('#pal-pnp',  window.compSVG('pnp', '#333'),  '-26 -26 52 52');
+    updatePaletteIcon('#pal-nmos', window.compSVG('nmos','#333'),  '-26 -26 52 52');
+    updatePaletteIcon('#pal-pmos', window.compSVG('pmos','#333'),  '-26 -26 52 52');
+    updatePaletteIcon('#pal-vsource',  window.compSVG('vsource', '#333'),  '-20 -30 40 60');
+    updatePaletteIcon('#pal-isource',  window.compSVG('isource', '#333'),  '-20 -30 40 60');
+    updatePaletteIcon('#pal-acsource', window.compSVG('acsource','#333'), '-20 -30 40 60');
   }
 
   function installAcSourcePalette(){
@@ -9574,13 +9599,31 @@ body.wire-mode #canvas * {
         <polygon points="22,-18 26,-18 26,-14" fill="${color}"/>`;
     }
     if(type === 'vsource'){
-      const mainW = Math.max(lw * 1.35, lw + 0.4);
-      const subW = Math.max(lw * 1.1, lw);
+      // 電池記号（長棒＋短棒）：円なし、パレットアイコンと同じ形
       return `
         <line x1="0" y1="-35" x2="0" y2="-5" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
-        <line x1="-16" y1="-5" x2="16" y2="-5" stroke="${color}" stroke-width="${mainW}" stroke-linecap="round"/>
-        <line x1="-9" y1="3" x2="9" y2="3" stroke="${color}" stroke-width="${subW}" stroke-linecap="round"/>
+        <line x1="-16" y1="-5" x2="16" y2="-5" stroke="${color}" stroke-width="${Math.max(lw*1.35,lw+0.4)}" stroke-linecap="round"/>
+        <line x1="-9" y1="3" x2="9" y2="3" stroke="${color}" stroke-width="${Math.max(lw*1.1,lw)}" stroke-linecap="round"/>
         <line x1="0" y1="3" x2="0" y2="35" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+      `;
+    }
+    if(type === 'isource'){
+      // 円付き電流源：円内に上向き矢印
+      return `
+        <line x1="0" y1="-30" x2="0" y2="-18" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <circle cx="0" cy="0" r="18" fill="white" stroke="${color}" stroke-width="${lw}"/>
+        <line x1="0" y1="18" x2="0" y2="30" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <line x1="0" y1="10" x2="0" y2="-6" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>
+        <polygon points="0,-10 -4,-3 4,-3" fill="${color}"/>
+      `;
+    }
+    if(type === 'acsource'){
+      // 円付き交流電源：円内にサイン波
+      return `
+        <line x1="0" y1="-30" x2="0" y2="-18" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <circle cx="0" cy="0" r="18" fill="white" stroke="${color}" stroke-width="${lw}"/>
+        <line x1="0" y1="18" x2="0" y2="30" stroke="${color}" stroke-width="${lw}" stroke-linecap="round"/>
+        <path d="M -10 2 C -7 -7, -3 -7, 0 0 C 3 7, 7 7, 10 -2" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round"/>
       `;
     }
     const prev = window.__shapeSafePrevCompSVG || window.compSVG || compSVG;
@@ -9988,6 +10031,239 @@ body.wire-mode #canvas * {
 })();
 </script>
 
+<script id="dash-and-double-arrow">
+(function(){
+var NS='http://www.w3.org/2000/svg';
+var BLACK='#1a1a1a';
+var SWATCHES=['#1a1a1a','#6b7280','#dc2626','#2563eb'];
+
+/* ===== 両矢印SVG ===== */
+function dasvg(sh){
+  var c=sh.strokeColor||sh.color||currentColor||BLACK;
+  var sw=Number(sh.strokeWidth)||1.6;
+  var L=Math.max(20,Number(sh.w)||90);
+  var hw=L/2, head=Math.min(16,Math.max(8,L*0.15)), half=head*0.52;
+  var da=sh.strokeDash==='dashed'?' stroke-dasharray="8 4"':sh.strokeDash==='dotted'?' stroke-dasharray="2 4"':'';
+  return '<line x1="'+((-hw+head))+'" y1="0" x2="'+(hw-head)+'" y2="0" stroke="'+c+'" stroke-width="'+sw+'" stroke-linecap="round"'+da+'/>'
+    +'<polygon points="'+(-hw)+',0 '+(-hw+head)+','+(-half)+' '+(-hw+head)+','+half+'" fill="'+c+'"/>'
+    +'<polygon points="'+hw+',0 '+(hw-head)+','+(-half)+' '+(hw-head)+','+half+'" fill="'+c+'"/>';
+}
+
+/* ===== shapeSVG: double-arrow対応 ===== */
+var prevSVG=window.shapeSVG;
+window.shapeSVG=shapeSVG=function(sh){
+  if(sh.kind==='double-arrow') return dasvg(sh);
+  return prevSVG(sh);
+};
+
+/* ===== shapeBox: double-arrow対応 ===== */
+var prevBox=window.shapeBox;
+window.shapeBox=shapeBox=function(sh){
+  if(sh.kind==='double-arrow') return {w:Math.max(20,Number(sh.w)||90),h:24};
+  return prevBox(sh);
+};
+
+/* ===== renderShape: double-arrow対応 ===== */
+var prevRender=window.renderShape;
+window.renderShape=renderShape=function(sh){
+  if(sh.kind!=='double-arrow') return prevRender(sh);
+  var g=document.createElementNS(NS,'g');
+  g.setAttribute('transform','translate('+sh.x+','+sh.y+') rotate('+(sh.rotation||0)+')');
+  g.setAttribute('data-sid',sh.id); g.style.cursor='move';
+  g.innerHTML=dasvg(sh);
+  var L=Math.max(20,Number(sh.w)||90),hw=L/2;
+  if(selectedIds.has('shape:'+sh.id)){
+    var box=document.createElementNS(NS,'rect');
+    box.setAttribute('x',-hw-8);box.setAttribute('y',-14);box.setAttribute('width',L+16);box.setAttribute('height',28);
+    box.setAttribute('fill','rgba(59,130,246,.04)');box.setAttribute('stroke','#3b82f6');
+    box.setAttribute('stroke-width','1');box.setAttribute('stroke-dasharray','4 3');
+    g.insertBefore(box,g.firstChild);
+    [['start',-hw],['end',hw]].forEach(function(a){
+      var h=document.createElementNS(NS,'circle');
+      h.setAttribute('cx',a[1]);h.setAttribute('cy',0);h.setAttribute('r',6);
+      h.setAttribute('fill','#fff');h.setAttribute('stroke','#3b82f6');h.setAttribute('stroke-width','1.4');
+      h.setAttribute('class','line-end-handle');h.setAttribute('data-sid',sh.id);h.setAttribute('data-end',a[0]);
+      g.appendChild(h);
+    });
+  }
+  var hit=document.createElementNS(NS,'line');
+  hit.setAttribute('x1',-hw-10);hit.setAttribute('y1',0);hit.setAttribute('x2',hw+10);hit.setAttribute('y2',0);
+  hit.setAttribute('stroke','transparent');hit.setAttribute('stroke-width','24');hit.setAttribute('stroke-linecap','round');
+  g.appendChild(hit);
+  g.addEventListener('mousedown',function(ev){
+    if(ev.target.classList&&ev.target.classList.contains('line-end-handle')) return;
+    if(placingType||placingShape) return;
+    if(tool!=='select') return;
+    ev.stopPropagation();ev.preventDefault();
+    if(!selectedIds.has('shape:'+sh.id)){selectedIds.clear();selectedWireId=null;selectedIds.add('shape:'+sh.id);renderAll();showProps();}
+    saveState();dragging={startPt:svgPt(ev),origPositions:{}};dragging.origPositions['shape:'+sh.id]={x:sh.x,y:sh.y};dragMoved=false;
+  });
+  return g;
+};
+
+/* ===== 両矢印配置（capture） ===== */
+document.getElementById('canvas').addEventListener('mousedown',function(e){
+  if(e.button!==0||!placingShape||placingShape.kind!=='double-arrow') return;
+  e.preventDefault();e.stopImmediatePropagation();
+  var pt=svgPt(e);saveState();
+  var sh={id:'s'+(++sid),kind:'double-arrow',filled:false,x:snap(pt.x),y:snap(pt.y),
+    rotation:typeof placingRotation!=='undefined'?placingRotation:0,flip:false,
+    w:90,h:24,color:currentColor||BLACK,strokeColor:currentColor||BLACK,
+    fillColor:'#ffffff',fillEnabled:false,strokeWidth:1.6,strokeDash:'solid'};
+  shapes.push(sh);selectedIds.clear();selectedWireId=null;selectedIds.add('shape:'+sh.id);
+  renderAll();showProps();runChecks();cancelPlace();setTool('select');
+},true);
+
+/* ===== startPlaceShape: double-arrowゴースト ===== */
+var prevPlace=window.startPlaceShape;
+window.startPlaceShape=startPlaceShape=function(kind,filled){
+  prevPlace(kind,filled);
+  if(kind==='double-arrow'){
+    var g=document.getElementById('ghost-g');
+    if(g) g.innerHTML=dasvg({w:90,h:24,color:currentColor||BLACK,strokeColor:currentColor||BLACK,strokeWidth:1.6});
+  }
+};
+
+/* ===== setLineLength/Angle: double-arrow対応 ===== */
+var prevLen=window.setLineLength;
+window.setLineLength=function(v){
+  var id=[...selectedIds][0];
+  if(id&&id.startsWith('shape:')){var sh=shapes.find(function(x){return x.id===id.slice(6);});if(sh&&sh.kind==='double-arrow'){sh.w=Math.max(20,parseInt(v)||20);renderAll();showProps();return;}}
+  if(prevLen) prevLen(v);
+};
+var prevAngle=window.setLineAngle;
+window.setLineAngle=function(v){
+  var id=[...selectedIds][0];
+  if(id&&id.startsWith('shape:')){var sh=shapes.find(function(x){return x.id===id.slice(6);});if(sh&&sh.kind==='double-arrow'){sh.rotation=parseInt(v)||0;renderAll();showProps();return;}}
+  if(prevAngle) prevAngle(v);
+};
+
+/* ===== 色スウォッチ・線種UI ===== */
+function mkSwatches(key,cur){
+  var val=cur||BLACK;
+  return SWATCHES.map(function(c){
+    return '<button class="color-swatch'+(c===val?' active':'')+'" style="--c:'+c+'" onclick="__setShapeColor(\''+key+'\',\''+c+'\',this)" title="'+c+'"></button>';
+  }).join('')+'<input type="color" class="toolbar-input" value="'+val+'" oninput="__setShapeColor(\''+key+'\',this.value,this)" style="width:24px;height:24px;padding:1px;border-radius:3px">';
+}
+function mkDash(cur,fn){
+  var v=cur||'solid';
+  return '<select class="prop-input" onchange="'+fn+'(this.value)">'
+    +'<option value="solid"'+(v==='solid'?' selected':'')+'>実線</option>'
+    +'<option value="dashed"'+(v==='dashed'?' selected':'')+'>破線</option>'
+    +'<option value="dotted"'+(v==='dotted'?' selected':'')+'>点線</option>'
+    +'</select>';
+}
+window.__setShapeColor=function(key,color,el){
+  var id=[...selectedIds][0];if(!id||!id.startsWith('shape:')) return;
+  var sh=shapes.find(function(x){return x.id===id.slice(6);});if(!sh) return;
+  if(key==='strokeColor'){sh.strokeColor=color;sh.color=color;}
+  else if(key==='fillColor'){sh.fillColor=color;sh.fillEnabled=true;sh.filled=true;}
+  if(el&&el.closest){var row=el.closest('.color-row');if(row)row.querySelectorAll('.color-swatch').forEach(function(b){b.classList.toggle('active',b.style.getPropertyValue('--c')===color);});}
+  renderAll();showProps();
+};
+window.__setShapeDash=function(v){
+  var id=[...selectedIds][0];if(!id||!id.startsWith('shape:')) return;
+  var sh=shapes.find(function(x){return x.id===id.slice(6);});if(!sh) return;
+  sh.strokeDash=v;renderAll();showProps();
+};
+window.__setShapeStrokeW=function(v){
+  var id=[...selectedIds][0];if(!id||!id.startsWith('shape:')) return;
+  var sh=shapes.find(function(x){return x.id===id.slice(6);});if(!sh) return;
+  sh.strokeWidth=Math.max(0.5,parseFloat(v)||1.6);renderAll();showProps();
+};
+window.__setShapeFillEnabled=function(v){
+  var id=[...selectedIds][0];if(!id||!id.startsWith('shape:')) return;
+  var sh=shapes.find(function(x){return x.id===id.slice(6);});if(!sh) return;
+  sh.fillEnabled=!!v;sh.filled=!!v;renderAll();showProps();
+};
+
+/* ===== showProps: 図形のみ担当 ===== */
+function buildShape(sh){
+  var T=document.getElementById('prop-title'),S=document.getElementById('prop-sub'),B=document.getElementById('prop-body');
+  if(!T||!S||!B) return false;
+  if(sh.kind==='line'||sh.kind==='arrow'||sh.kind==='double-arrow'){
+    var L=Math.max(20,Number(sh.w)||(sh.kind==='line'?80:90));
+    var sc=sh.strokeColor||sh.color||currentColor||BLACK;
+    T.textContent=sh.kind==='double-arrow'?'両矢印':sh.kind==='arrow'?'矢印':'線';
+    S.textContent='端点で長さ・角度を調整';
+    B.innerHTML='<div class="prop-field"><label class="prop-label">長さ</label><input class="prop-input" type="number" min="20" value="'+Math.round(L)+'" oninput="setLineLength(this.value)"></div>'
+      +'<div class="prop-field"><label class="prop-label">角度</label><input class="prop-input" type="number" value="'+Math.round(sh.rotation||0)+'" oninput="setLineAngle(this.value)"></div>'
+      +'<div class="prop-field"><label class="prop-label">色</label><div class="color-row">'+mkSwatches('strokeColor',sc)+'</div></div>'
+      +'<div class="prop-field"><label class="prop-label">線種</label>'+mkDash(sh.strokeDash,'__setShapeDash')+'</div>'
+      +'<div class="prop-field"><label class="prop-label">線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="'+(Number(sh.strokeWidth)||1.6)+'" oninput="__setShapeStrokeW(this.value)"></div>'
+      +'<button class="prop-btn danger" onclick="deleteSelected()">&#128465; 削除</button>';
+    return true;
+  }
+  if(sh.kind!=='jump'){
+    if(typeof normalizeShapeStyle==='function') normalizeShapeStyle(sh);
+    var sc2=sh.strokeColor||sh.color||currentColor||BLACK;
+    var fc=sh.fillColor||'#ffffff';
+    var b2=typeof shapeBox==='function'?shapeBox(sh):{w:sh.w||60,h:sh.h||40};
+    var LBL={rect:'四角形',triangle:'三角形',circle:'円',star:'星'};
+    T.textContent=LBL[sh.kind]||'図形';S.textContent='ハンドル/数値でサイズ調整';
+    B.innerHTML='<div class="prop-field"><label class="prop-label">幅</label><input class="prop-input" type="number" min="5" value="'+Math.round(b2.w)+'" oninput="setShapeProp(\'w\',parseInt(this.value)||10)"></div>'
+      +'<div class="prop-field"><label class="prop-label">高さ</label><input class="prop-input" type="number" min="5" value="'+Math.round(b2.h)+'" oninput="setShapeProp(\'h\',parseInt(this.value)||10)"></div>'
+      +'<div class="prop-field"><label class="prop-label">枠線色</label><div class="color-row">'+mkSwatches('strokeColor',sc2)+'</div></div>'
+      +'<div class="prop-field"><label class="prop-label">線種</label>'+mkDash(sh.strokeDash,'__setShapeDash')+'</div>'
+      +'<div class="prop-field"><label class="prop-label">枠線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="'+(Number(sh.strokeWidth)||1.6)+'" oninput="__setShapeStrokeW(this.value)"></div>'
+      +'<label style="display:flex;align-items:center;gap:6px;margin:2px 0"><input type="checkbox" '+(sh.fillEnabled?'checked':'')+' onchange="__setShapeFillEnabled(this.checked)"> 塗りつぶし</label>'
+      +(sh.fillEnabled?'<div class="prop-field"><label class="prop-label">塗り色</label><div class="color-row">'+mkSwatches('fillColor',fc)+'</div></div>':'')
+      +'<div class="btn-row"><button class="prop-btn" onclick="rotateSelected()">&#8635; 90&deg;回転</button><button class="prop-btn" onclick="flipSelected()">&#8644; 反転</button></div>'
+      +'<button class="prop-btn danger" onclick="deleteSelected()">&#128465; 削除</button>';
+    return true;
+  }
+  return false;
+}
+var prevSP=window.showProps;
+window.showProps=showProps=function(){
+  var active=document.activeElement,pb=document.getElementById('prop-body');
+  if(pb&&active&&pb.contains(active)&&(active.tagName==='INPUT'||active.tagName==='TEXTAREA'||active.tagName==='SELECT')) return;
+  var id=selectedIds.size===1?[...selectedIds][0]:null;
+  if(id&&id.startsWith('shape:')){
+    var sh=shapes.find(function(x){return x.id===id.slice(6);});
+    if(sh&&buildShape(sh)) return;
+  }
+  prevSP();
+};
+document.addEventListener('focusout',function(e){
+  var pb=document.getElementById('prop-body');
+  if(pb&&pb.contains(e.target)) setTimeout(function(){if(typeof showProps==='function')showProps();},80);
+},true);
+
+/* ===== renderAll後に破線をDOM適用 ===== */
+var prevRA=window.renderAll;
+window.renderAll=renderAll=function(){
+  if(prevRA) prevRA();
+  // 配線の破線
+  if(typeof wires!=='undefined'){
+    document.querySelectorAll('#wires-layer g[data-wid]').forEach(function(g){
+      var w=wires.find(function(x){return x.id===g.getAttribute('data-wid');});
+      if(!w) return;
+      var st=w.style||'solid';
+      var da=st==='dotted'?'1 6':st==='dashed'?'8 5':'';
+      var paths=Array.from(g.querySelectorAll('path')).filter(function(p){return (p.getAttribute('stroke')||'').toLowerCase()!=='transparent';});
+      var ap=paths[paths.length-1];
+      if(ap){if(da){ap.setAttribute('stroke-dasharray',da);ap.setAttribute('stroke-linecap','round');}else{ap.removeAttribute('stroke-dasharray');}}
+    });
+  }
+  // 図形の破線
+  if(typeof shapes!=='undefined'){
+    document.querySelectorAll('#comps-layer g[data-sid]').forEach(function(g){
+      var sh=shapes.find(function(x){return x.id===g.getAttribute('data-sid');});
+      if(!sh||!sh.strokeDash||sh.strokeDash==='solid') return;
+      var da=sh.strokeDash==='dashed'?'8 4':'2 4';
+      g.querySelectorAll('line,path,polyline,ellipse,rect').forEach(function(el){
+        var stroke=(el.getAttribute('stroke')||'').toLowerCase();
+        if(!stroke||stroke==='none'||stroke==='transparent') return;
+        el.setAttribute('stroke-dasharray',da);
+      });
+    });
+  }
+};
+
+renderAll();showProps();
+})();
+</script>
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
@@ -10635,3 +10911,4 @@ body.wire-mode #canvas * {
   window.addEventListener('load', bindPngButtonFixed);
 })();
 </script>
+
