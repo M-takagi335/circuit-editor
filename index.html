@@ -10917,6 +10917,415 @@ renderAll();showProps();
 })();
 </script>
 
+
+
+<script id="wire-copy-enabled-final-patch">
+// 配線コピー最終パッチ:
+// - Ctrl+C/Ctrl+V とプロパティのコピー/貼付で、選択中の配線も複製する。
+// - 範囲選択で囲んだ/交差した配線も selectedIds に wire:<id> として入れる。
+(function(){
+  'use strict';
+  if(window.__wireCopyEnabledFinalPatch) return;
+  window.__wireCopyEnabledFinalPatch = true;
+
+  function asArray(set){ return Array.from(set || []); }
+  function isWireKey(id){ return typeof id === 'string' && id.indexOf('wire:') === 0; }
+  function isMathKey(id){ return typeof id === 'string' && id.indexOf('math:') === 0; }
+  function isShapeKey(id){ return typeof id === 'string' && id.indexOf('shape:') === 0; }
+  function isJunctionKey(id){ return typeof id === 'string' && id.indexOf('junction:') === 0; }
+  function isComponentKey(id){ return typeof id === 'string' && !isWireKey(id) && !isMathKey(id) && !isShapeKey(id) && !isJunctionKey(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>\"]/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]; }); }
+
+  function selectedWireIdSet(){
+    var ids = new Set();
+    if(typeof selectedWireId !== 'undefined' && selectedWireId) ids.add(selectedWireId);
+    asArray(selectedIds).forEach(function(id){ if(isWireKey(id)) ids.add(id.slice(5)); });
+    return ids;
+  }
+  window.getSelectedWireIdsForCopy = selectedWireIdSet;
+
+  function selectedComponentIds(){ return asArray(selectedIds).filter(isComponentKey); }
+
+  function selectedObjectPoints(){
+    var pts = [];
+    asArray(selectedIds).forEach(function(id){
+      if(isComponentKey(id)){
+        var c = components.find(function(x){ return x.id === id; });
+        if(c) pts.push({x:c.x, y:c.y});
+      }else if(isMathKey(id)){
+        var m = mathLabels.find(function(x){ return x.id === id.slice(5); });
+        if(m) pts.push({x:m.x, y:m.y});
+      }else if(isShapeKey(id)){
+        var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+        if(sh) pts.push({x:sh.x, y:sh.y});
+      }else if(isJunctionKey(id)){
+        var j = junctions.find(function(x){ return x.id === id.slice(9); });
+        if(j) pts.push({x:j.x, y:j.y});
+      }else if(isWireKey(id)){
+        var w = wires.find(function(x){ return x.id === id.slice(5); });
+        if(w) pts.push({x:w.x1,y:w.y1},{x:w.x2,y:w.y2});
+      }
+    });
+    if(typeof selectedWireId !== 'undefined' && selectedWireId){
+      var sw = wires.find(function(x){ return x.id === selectedWireId; });
+      if(sw) pts.push({x:sw.x1,y:sw.y1},{x:sw.x2,y:sw.y2});
+    }
+    return pts;
+  }
+
+  function pointInRect(x,y,r){ return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2; }
+  function rectFromPts(a,b){ return {x1:Math.min(a.x,b.x), y1:Math.min(a.y,b.y), x2:Math.max(a.x,b.x), y2:Math.max(a.y,b.y)}; }
+  function segmentIntersectsRect(x1,y1,x2,y2,r){
+    if(pointInRect(x1,y1,r) || pointInRect(x2,y2,r)) return true;
+    var minX = Math.min(x1,x2), maxX = Math.max(x1,x2), minY = Math.min(y1,y2), maxY = Math.max(y1,y2);
+    if(maxX < r.x1 || minX > r.x2 || maxY < r.y1 || minY > r.y2) return false;
+    if(y1 === y2) return y1 >= r.y1 && y1 <= r.y2 && maxX >= r.x1 && minX <= r.x2;
+    if(x1 === x2) return x1 >= r.x1 && x1 <= r.x2 && maxY >= r.y1 && minY <= r.y2;
+    return true;
+  }
+  function wireHitsRect(w,r){
+    if(!w) return false;
+    if(w.x1 === w.x2 || w.y1 === w.y2) return segmentIntersectsRect(w.x1,w.y1,w.x2,w.y2,r);
+    var mx = w.x1 + (w.x2 - w.x1) * 0.5;
+    return segmentIntersectsRect(w.x1,w.y1,mx,w.y1,r) || segmentIntersectsRect(mx,w.y1,mx,w.y2,r) || segmentIntersectsRect(mx,w.y2,w.x2,w.y2,r);
+  }
+
+  var pendingSelectionBox = null;
+  var canvasEl = document.getElementById('canvas');
+  if(canvasEl){
+    canvasEl.addEventListener('mouseup', function(){
+      if(typeof tool === 'undefined' || tool !== 'select' || !selBoxStart || !selBoxCur) return;
+      pendingSelectionBox = rectFromPts(selBoxStart, selBoxCur);
+    }, true);
+
+    canvasEl.addEventListener('mouseup', function(){
+      if(!pendingSelectionBox) return;
+      var r = pendingSelectionBox;
+      pendingSelectionBox = null;
+      if((r.x2-r.x1) <= 5 && (r.y2-r.y1) <= 5) return;
+      var changed = false;
+      wires.forEach(function(w){
+        if(wireHitsRect(w, r)){
+          var key = 'wire:' + w.id;
+          if(!selectedIds.has(key)){ selectedIds.add(key); changed = true; }
+        }
+      });
+      var wireKeys = asArray(selectedIds).filter(isWireKey);
+      selectedWireId = (wireKeys.length === 1 && selectedIds.size === 1) ? wireKeys[0].slice(5) : null;
+      if(changed){ renderAll(); showProps(); }
+    });
+  }
+
+  function connectedWiresInsideCopiedComponents(compIds){
+    var out = [];
+    if(compIds.length < 2) return out;
+    var compSet = new Set(compIds);
+    wires.forEach(function(w){
+      if(w.c1 && w.c2 && compSet.has(w.c1) && compSet.has(w.c2)) out.push(w);
+    });
+    return out;
+  }
+
+  window.copySelection = copySelection = function(){
+    var ids = asArray(selectedIds);
+    var compIds = ids.filter(isComponentKey);
+    var mathIds = ids.filter(isMathKey).map(function(id){ return id.slice(5); });
+    var shapeIds = ids.filter(isShapeKey).map(function(id){ return id.slice(6); });
+    var junctionIds = ids.filter(isJunctionKey).map(function(id){ return id.slice(9); });
+    var wireIdSet = selectedWireIdSet();
+
+    connectedWiresInsideCopiedComponents(compIds).forEach(function(w){ wireIdSet.add(w.id); });
+
+    var copiedWires = wires.filter(function(w){ return wireIdSet.has(w.id); }).map(function(w){ return Object.assign({}, w); });
+    var copiedComponents = components.filter(function(c){ return compIds.indexOf(c.id) !== -1; }).map(function(c){ return Object.assign({}, c); });
+    var copiedMath = mathLabels.filter(function(m){ return mathIds.indexOf(m.id) !== -1; }).map(function(m){ return Object.assign({}, m); });
+    var copiedShapes = shapes.filter(function(sh){ return shapeIds.indexOf(sh.id) !== -1; }).map(function(sh){ return Object.assign({}, sh); });
+    var copiedJunctions = junctions.filter(function(j){ return junctionIds.indexOf(j.id) !== -1; }).map(function(j){ return Object.assign({}, j); });
+
+    if(!copiedComponents.length && !copiedMath.length && !copiedShapes.length && !copiedJunctions.length && !copiedWires.length) return;
+
+    clipboard = {
+      components: copiedComponents,
+      mathLabels: copiedMath,
+      shapes: copiedShapes,
+      junctions: copiedJunctions,
+      wires: copiedWires
+    };
+  };
+
+  window.pasteSelectionAtMouse = pasteSelectionAtMouse = function(){
+    if(!clipboard) return;
+    var pts = [];
+    (clipboard.components || []).forEach(function(c){ pts.push({x:c.x,y:c.y}); });
+    (clipboard.mathLabels || []).forEach(function(m){ pts.push({x:m.x,y:m.y}); });
+    (clipboard.shapes || []).forEach(function(sh){ pts.push({x:sh.x,y:sh.y}); });
+    (clipboard.junctions || []).forEach(function(j){ pts.push({x:j.x,y:j.y}); });
+    (clipboard.wires || []).forEach(function(w){ pts.push({x:w.x1,y:w.y1},{x:w.x2,y:w.y2}); });
+    if(!pts.length) return;
+
+    saveState();
+    selectedIds.clear();
+    selectedWireId = null;
+
+    var minX = Math.min.apply(null, pts.map(function(p){ return p.x; }));
+    var minY = Math.min.apply(null, pts.map(function(p){ return p.y; }));
+    var dx = snap(((lastMouseWorld && lastMouseWorld.x) || 0) - minX);
+    var dy = snap(((lastMouseWorld && lastMouseWorld.y) || 0) - minY);
+    var compMap = new Map();
+
+    (clipboard.components || []).forEach(function(c){
+      var oldId = c.id;
+      var n = Object.assign({}, c, {id:'c' + (++cid), x:snap(c.x + dx), y:snap(c.y + dy), ref:''});
+      components.push(n);
+      compMap.set(oldId, n.id);
+      selectedIds.add(n.id);
+    });
+
+    (clipboard.mathLabels || []).forEach(function(m){
+      var n = Object.assign({}, m, {id:'m' + (++mid), x:snap(m.x + dx), y:snap(m.y + dy)});
+      mathLabels.push(n);
+      selectedIds.add('math:' + n.id);
+    });
+
+    (clipboard.shapes || []).forEach(function(sh){
+      var n = Object.assign({}, sh, {id:'s' + (++sid), x:snap(sh.x + dx), y:snap(sh.y + dy)});
+      shapes.push(n);
+      selectedIds.add('shape:' + n.id);
+    });
+
+    (clipboard.junctions || []).forEach(function(j){
+      var n = Object.assign({}, j, {id:'j' + (++jid), x:snap(j.x + dx), y:snap(j.y + dy)});
+      junctions.push(n);
+      selectedIds.add('junction:' + n.id);
+    });
+
+    var pastedWireIds = [];
+    (clipboard.wires || []).forEach(function(w){
+      var n = Object.assign({}, w, {
+        id:'w' + (++wid),
+        x1:snap(w.x1 + dx), y1:snap(w.y1 + dy),
+        x2:snap(w.x2 + dx), y2:snap(w.y2 + dy)
+      });
+      if(n.c1) n.c1 = compMap.get(n.c1) || null;
+      if(n.c2) n.c2 = compMap.get(n.c2) || null;
+      wires.push(n);
+      pastedWireIds.push(n.id);
+      selectedIds.add('wire:' + n.id);
+    });
+    selectedWireId = (pastedWireIds.length === 1 && selectedIds.size === 1) ? pastedWireIds[0] : null;
+
+    renderAll();
+    showProps();
+    runChecks();
+  };
+
+  window.showWireProps = showWireProps = function(w){
+    if(!w) return;
+    if(!w.style) w.style = w.dashed ? 'dotted' : 'solid';
+    var title = document.getElementById('prop-title'), sub = document.getElementById('prop-sub'), body = document.getElementById('prop-body');
+    if(!title || !sub || !body) return;
+    title.textContent = '配線';
+    sub.textContent = w.id;
+    body.innerHTML = '' +
+      '<div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="' + esc(w.color || currentColor || '#6b7280') + '" oninput="setSelectedWireColor(this.value)"></div>' +
+      '<div class="prop-field"><label class="prop-label">線の種類</label><select class="prop-input" onchange="setSelectedWireStyle(this.value)">' +
+      '<option value="solid" ' + (w.style === 'solid' ? 'selected' : '') + '>実線</option>' +
+      '<option value="dotted" ' + (w.style === 'dotted' ? 'selected' : '') + '>点線</option>' +
+      '<option value="dashed" ' + (w.style === 'dashed' ? 'selected' : '') + '>破線</option>' +
+      '</select></div>' +
+      '<div class="btn-row"><button class="prop-btn" onclick="copySelection()">コピー</button><button class="prop-btn" onclick="pasteSelectionAtMouse()">貼付</button></div>' +
+      '<button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>';
+  };
+
+  var previousShowPropsForWireCopy = window.showProps || showProps;
+  window.showProps = showProps = function(){
+    var wireIds = selectedWireIdSet();
+    if(wireIds.size === 1 && selectedIds.size === 1){
+      var one = Array.from(wireIds)[0];
+      var w = wires.find(function(x){ return x.id === one; });
+      if(w){ showWireProps(w); return; }
+    }
+    previousShowPropsForWireCopy();
+  };
+})();
+</script>
+
+
+
+<script id="wire-copy-move-final-fix">
+// 配線コピー後の移動修正:
+// - 貼り付け直後に選択されている wire:<id> もドラッグ対象へ入れる。
+// - 選択中の配線をつかんだ時、部品/文字/図形/結線点/配線をまとめて移動できる。
+(function(){
+  'use strict';
+  if(window.__wireCopyMoveFinalFix) return;
+  window.__wireCopyMoveFinalFix = true;
+
+  function arr(set){ return Array.from(set || []); }
+  function isWireKey(id){ return typeof id === 'string' && id.indexOf('wire:') === 0; }
+  function isMathKey(id){ return typeof id === 'string' && id.indexOf('math:') === 0; }
+  function isShapeKey(id){ return typeof id === 'string' && id.indexOf('shape:') === 0; }
+  function isJunctionKey(id){ return typeof id === 'string' && id.indexOf('junction:') === 0; }
+  function isComponentKey(id){ return typeof id === 'string' && !isWireKey(id) && !isMathKey(id) && !isShapeKey(id) && !isJunctionKey(id); }
+
+  function selectedWireIdList(){
+    var out = new Set();
+    if(typeof selectedWireId !== 'undefined' && selectedWireId) out.add(selectedWireId);
+    arr(selectedIds).forEach(function(id){ if(isWireKey(id)) out.add(id.slice(5)); });
+    return Array.from(out);
+  }
+
+  function selectedWireKeyCount(){
+    return arr(selectedIds).filter(isWireKey).length + ((typeof selectedWireId !== 'undefined' && selectedWireId && !selectedIds.has('wire:' + selectedWireId)) ? 1 : 0);
+  }
+
+  function updateSingleWireSelectionFlag(){
+    var wireKeys = arr(selectedIds).filter(isWireKey);
+    selectedWireId = (wireKeys.length === 1 && selectedIds.size === 1) ? wireKeys[0].slice(5) : null;
+  }
+
+  function addSelectedObjectOriginsToDragging(){
+    if(!dragging || !dragging.origPositions) return;
+
+    arr(selectedIds).forEach(function(id){
+      if(isWireKey(id)){
+        var wid_ = id.slice(5);
+        var w = wires.find(function(x){ return x.id === wid_; });
+        if(w) dragging.origPositions[id] = {x1:w.x1, y1:w.y1, x2:w.x2, y2:w.y2};
+      }else if(isComponentKey(id)){
+        var c = components.find(function(x){ return x.id === id; });
+        if(c && !dragging.origPositions[id]) dragging.origPositions[id] = {x:c.x, y:c.y};
+      }else if(isMathKey(id)){
+        var m = mathLabels.find(function(x){ return x.id === id.slice(5); });
+        if(m && !dragging.origPositions[id]) dragging.origPositions[id] = {x:m.x, y:m.y};
+      }else if(isShapeKey(id)){
+        var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+        if(sh && !dragging.origPositions[id]) dragging.origPositions[id] = {x:sh.x, y:sh.y};
+      }else if(isJunctionKey(id)){
+        var j = junctions.find(function(x){ return x.id === id.slice(9); });
+        if(j && !dragging.origPositions[id]) dragging.origPositions[id] = {x:j.x, y:j.y};
+      }
+    });
+
+    if(typeof selectedWireId !== 'undefined' && selectedWireId){
+      var sw = wires.find(function(x){ return x.id === selectedWireId; });
+      if(sw) dragging.origPositions['wire:' + selectedWireId] = {x1:sw.x1, y1:sw.y1, x2:sw.x2, y2:sw.y2};
+    }
+  }
+
+  function startDragFromCurrentSelection(e){
+    saveState();
+    dragging = {startPt: svgPt(e), origPositions:{}};
+    addSelectedObjectOriginsToDragging();
+    dragMoved = false;
+  }
+
+  function firstSelectedWire(){
+    var ids = selectedWireIdList();
+    return ids.length ? wires.find(function(w){ return w.id === ids[0]; }) : null;
+  }
+
+  // 選択中の配線を直接つかんだ時、既存の配線mousedownが選択を単体に戻す前に処理する。
+  document.addEventListener('mousedown', function(e){
+    if(e.button !== 0 || typeof tool === 'undefined' || tool !== 'select') return;
+    if(placingType || placingShape) return;
+    var target = e.target;
+    if(!target || !target.closest) return;
+    var wireGroup = target.closest('#wires-layer g[data-wid]');
+
+    // 部品などをつかんだ場合は、既存処理が dragging を作った後に配線も追加する。
+    if(!wireGroup){
+      setTimeout(function(){ addSelectedObjectOriginsToDragging(); }, 0);
+      return;
+    }
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    var wid_ = wireGroup.getAttribute('data-wid');
+    var key = 'wire:' + wid_;
+    if(e.shiftKey){
+      if(selectedIds.has(key)) selectedIds.delete(key);
+      else selectedIds.add(key);
+    }else if(!selectedIds.has(key)){
+      selectedIds.clear();
+      selectedIds.add(key);
+    }
+    updateSingleWireSelectionFlag();
+    startDragFromCurrentSelection(e);
+    renderAll();
+    var w = wires.find(function(x){ return x.id === wid_; });
+    if(selectedIds.size === 1 && w) showWireProps(w);
+    else showProps();
+  }, true);
+
+  // 既存のmousemoveは部品/図形/文字/結線点しか動かさないため、配線だけ先に動かす。
+  document.addEventListener('mousemove', function(e){
+    if(!dragging || typeof tool === 'undefined' || tool !== 'select') return;
+    if(!dragging.origPositions) return;
+    var hasWire = Object.keys(dragging.origPositions).some(isWireKey);
+    if(!hasWire) return;
+
+    var pt = svgPt(e);
+    var dx = snap(pt.x - dragging.startPt.x);
+    var dy = snap(pt.y - dragging.startPt.y);
+    if(dx || dy) dragMoved = true;
+
+    Object.keys(dragging.origPositions).forEach(function(id){
+      if(!isWireKey(id)) return;
+      var orig = dragging.origPositions[id];
+      var w = wires.find(function(x){ return x.id === id.slice(5); });
+      if(!w || !orig) return;
+      w.x1 = snap(orig.x1 + dx);
+      w.y1 = snap(orig.y1 + dy);
+      w.x2 = snap(orig.x2 + dx);
+      w.y2 = snap(orig.y2 + dy);
+      // 端子に紐づく古い接続情報が残ると、部品移動時に引き戻されるので外す。
+      delete w.c1; delete w.t1; delete w.c2; delete w.t2;
+    });
+  }, true);
+
+  // 貼り付け直後の表示を明確化: wire:<id> で選ばれた配線も選択ハイライトにする。
+  var prevDrawWireEl = window.drawWireEl || drawWireEl;
+  window.drawWireEl = drawWireEl = function(w){
+    var g = prevDrawWireEl(w);
+    if(!g || !w) return g;
+    var isSelected = selectedWireId === w.id || selectedIds.has('wire:' + w.id);
+    if(isSelected){
+      g.classList.add('selected-wire');
+      var paths = g.querySelectorAll('path');
+      if(paths.length){
+        // 透明ヒットパス以外に青い外枠がない古い描画にも対応。
+        var hasBlue = false;
+        paths.forEach(function(p){ if((p.getAttribute('stroke') || '').toLowerCase() === '#3b82f6') hasBlue = true; });
+        if(!hasBlue){
+          var d = paths[0].getAttribute('d');
+          var hl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          hl.setAttribute('d', d);
+          hl.setAttribute('fill', 'none');
+          hl.setAttribute('stroke', '#3b82f6');
+          hl.setAttribute('stroke-width', String(((typeof getLineWidth === 'function') ? getLineWidth() : 1.6) + 3));
+          hl.setAttribute('stroke-linecap', 'round');
+          hl.setAttribute('stroke-linejoin', 'round');
+          hl.setAttribute('opacity', '0.25');
+          g.insertBefore(hl, g.firstChild);
+        }
+      }
+    }
+    return g;
+  };
+
+  var prevPaste = window.pasteSelectionAtMouse || pasteSelectionAtMouse;
+  window.pasteSelectionAtMouse = pasteSelectionAtMouse = function(){
+    prevPaste();
+    setTimeout(function(){
+      updateSingleWireSelectionFlag();
+      renderAll();
+      showProps();
+    }, 0);
+  };
+})();
+</script>
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
