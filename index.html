@@ -12472,7 +12472,8 @@ renderAll();showProps();
         fillColor: color(sh.fillColor, '#ffffff'),
         fillEnabled: bool(sh.fillEnabled),
         strokeWidth: finite(sh.strokeWidth, (typeof getLineWidth === 'function' ? getLineWidth() : 1.6), 0.2, 20),
-        strokeDash: strokeDash
+        strokeDash: strokeDash,
+        arrowHeadSize: finite(sh.arrowHeadSize, 0, 0, 200)
       });
     });
     return out;
@@ -12547,5 +12548,149 @@ renderAll();showProps();
     };
     reader.readAsText(file);
   };
+})();
+</script>
+
+
+<script id="arrow-head-size-control">
+(function(){
+  var BLACK = '#1a1a1a';
+
+  function num(v, fallback){
+    v = Number(v);
+    return Number.isFinite(v) ? v : fallback;
+  }
+  function lineLength(sh){
+    return Math.max(20, num(sh && sh.w, sh && sh.kind === 'line' ? 80 : 90));
+  }
+  function defaultHeadSize(sh){
+    var L = lineLength(sh || {});
+    if(sh && sh.kind === 'double-arrow') return Math.min(16, Math.max(8, L * 0.15));
+    return Math.min(16, Math.max(9, L * 0.16));
+  }
+  function headSize(sh){
+    var v = num(sh && sh.arrowHeadSize, 0);
+    return v > 0 ? v : defaultHeadSize(sh);
+  }
+  function strokeColor(sh){
+    return (sh && (sh.strokeColor || sh.color)) || (typeof currentColor !== 'undefined' ? currentColor : BLACK) || BLACK;
+  }
+  function strokeWidth(sh){
+    return num(sh && sh.strokeWidth, 1.6);
+  }
+  function dashAttr(sh){
+    var d = sh && sh.strokeDash;
+    if(d === 'dashed') return ' stroke-dasharray="8 4"';
+    if(d === 'dotted') return ' stroke-dasharray="2 4"';
+    return '';
+  }
+
+  var previousShapeSVG = window.shapeSVG;
+  window.shapeSVG = shapeSVG = function(sh){
+    if(sh && sh.kind === 'arrow'){
+      var c = strokeColor(sh), sw = strokeWidth(sh), L = lineLength(sh), hw = L / 2;
+      var head = Math.min(headSize(sh), Math.max(2, L - 4));
+      var half = head * 0.55;
+      return '<line x1="'+(-hw)+'" y1="0" x2="'+(hw-head)+'" y2="0" stroke="'+c+'" stroke-width="'+sw+'" stroke-linecap="round"'+dashAttr(sh)+'/>'
+        + '<polygon points="'+hw+',0 '+(hw-head)+','+(-half)+' '+(hw-head)+','+half+'" fill="'+c+'"/>';
+    }
+    if(sh && sh.kind === 'double-arrow'){
+      var c2 = strokeColor(sh), sw2 = strokeWidth(sh), L2 = lineLength(sh), hw2 = L2 / 2;
+      var head2 = Math.min(headSize(sh), Math.max(2, L2 / 2 - 2));
+      var half2 = head2 * 0.52;
+      return '<line x1="'+(-hw2+head2)+'" y1="0" x2="'+(hw2-head2)+'" y2="0" stroke="'+c2+'" stroke-width="'+sw2+'" stroke-linecap="round"'+dashAttr(sh)+'/>'
+        + '<polygon points="'+(-hw2)+',0 '+(-hw2+head2)+','+(-half2)+' '+(-hw2+head2)+','+half2+'" fill="'+c2+'"/>'
+        + '<polygon points="'+hw2+',0 '+(hw2-head2)+','+(-half2)+' '+(hw2-head2)+','+half2+'" fill="'+c2+'"/>';
+    }
+    return previousShapeSVG(sh);
+  };
+
+  var previousAddShape = window.addShape;
+  window.addShape = addShape = function(kind, filled, x, y, opts){
+    var sh = previousAddShape(kind, filled, x, y, opts);
+    if(sh && (kind === 'arrow' || kind === 'double-arrow') && !sh.arrowHeadSize){
+      sh.arrowHeadSize = Math.round(defaultHeadSize(sh));
+    }
+    return sh;
+  };
+
+  window.setLineHeadSize = function(v){
+    var id = selectedIds && selectedIds.size === 1 ? Array.from(selectedIds)[0] : null;
+    if(!id || !id.startsWith('shape:')) return;
+    var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+    if(!sh || (sh.kind !== 'arrow' && sh.kind !== 'double-arrow')) return;
+    sh.arrowHeadSize = Math.max(2, Math.min(200, parseFloat(v) || defaultHeadSize(sh)));
+    renderAll();
+  };
+
+  function setDash(v){
+    var id = selectedIds && selectedIds.size === 1 ? Array.from(selectedIds)[0] : null;
+    if(!id || !id.startsWith('shape:')) return;
+    var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+    if(!sh) return;
+    sh.strokeDash = v || 'solid';
+    renderAll();
+  }
+  window.__setArrowHeadPatchDash = setDash;
+
+  var previousShowProps = window.showProps;
+  window.showProps = showProps = function(){
+    var active = document.activeElement;
+    var pb = document.getElementById('prop-body');
+    if(pb && active && pb.contains(active) && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+
+    var id = selectedIds && selectedIds.size === 1 ? Array.from(selectedIds)[0] : null;
+    if(id && id.startsWith('shape:')){
+      var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+      if(sh && (sh.kind === 'arrow' || sh.kind === 'double-arrow')){
+        var title = document.getElementById('prop-title');
+        var sub = document.getElementById('prop-sub');
+        var body = document.getElementById('prop-body');
+        var L = lineLength(sh);
+        var sc = strokeColor(sh);
+        var dash = sh.strokeDash || 'solid';
+        title.textContent = sh.kind === 'double-arrow' ? '両矢印' : '矢印';
+        sub.textContent = '長さ・角度・三角部分を調整';
+        body.innerHTML = ''
+          + '<div class="prop-field"><label class="prop-label">長さ</label><input class="prop-input" type="number" min="20" value="'+Math.round(L)+'" oninput="setLineLength(this.value)"></div>'
+          + '<div class="prop-field"><label class="prop-label">角度</label><input class="prop-input" type="number" value="'+Math.round(sh.rotation || 0)+'" oninput="setLineAngle(this.value)"></div>'
+          + '<div class="prop-field"><label class="prop-label">三角部分の大きさ</label><input class="prop-input" type="number" min="2" max="200" step="1" value="'+Math.round(headSize(sh))+'" oninput="setLineHeadSize(this.value)"></div>'
+          + '<div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="'+sc+'" oninput="__setShapeColor ? __setShapeColor(\'strokeColor\',this.value,this) : setShapeProp(\'color\',this.value)"></div>'
+          + '<div class="prop-field"><label class="prop-label">線種</label><select class="prop-input" onchange="__setShapeDash ? __setShapeDash(this.value) : __setArrowHeadPatchDash(this.value)">'
+          + '<option value="solid"'+(dash==='solid'?' selected':'')+'>実線</option>'
+          + '<option value="dashed"'+(dash==='dashed'?' selected':'')+'>破線</option>'
+          + '<option value="dotted"'+(dash==='dotted'?' selected':'')+'>点線</option>'
+          + '</select></div>'
+          + '<div class="prop-field"><label class="prop-label">線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="'+strokeWidth(sh)+'" oninput="__setShapeStrokeW ? __setShapeStrokeW(this.value) : setShapeStyle(\'strokeWidth\',this.value)"></div>'
+          + '<div class="hint">「三角部分の大きさ」で矢印の先端だけを大きく/小さくできます。長さを変えても、設定した三角サイズは保持されます。</div>'
+          + '<button class="prop-btn danger" onclick="deleteSelected()">&#128465; 削除</button>';
+        return;
+      }
+    }
+    previousShowProps();
+  };
+
+  var previousStartPlaceShape = window.startPlaceShape;
+  window.startPlaceShape = startPlaceShape = function(kind, filled){
+    previousStartPlaceShape(kind, filled);
+    if(kind === 'arrow' || kind === 'double-arrow'){
+      var g = document.getElementById('ghost-g');
+      if(g){
+        var preview = {kind:kind, w:90, h:24, color:(typeof currentColor !== 'undefined' ? currentColor : BLACK), strokeColor:(typeof currentColor !== 'undefined' ? currentColor : BLACK), strokeWidth:(typeof window.getCircuitLineWidth === 'function' ? window.getCircuitLineWidth() : 1.6)};
+        preview.arrowHeadSize = Math.round(defaultHeadSize(preview));
+        g.innerHTML = shapeSVG(preview);
+      }
+    }
+  };
+
+  if(typeof shapes !== 'undefined'){
+    shapes.forEach(function(sh){
+      if((sh.kind === 'arrow' || sh.kind === 'double-arrow') && !sh.arrowHeadSize){
+        sh.arrowHeadSize = Math.round(defaultHeadSize(sh));
+      }
+    });
+  }
+  renderAll();
+  showProps();
 })();
 </script>
