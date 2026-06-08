@@ -11911,3 +11911,232 @@ renderAll();showProps();
   window.addEventListener('load', bindFinalPngButton);
 })();
 </script>
+
+<script id="safe-json-load-validator-final">
+// JSON読み込み時の安全チェック: 想定外の型・過大データ・不正な色や文字列を読み込み前に除去/補正する。
+(function(){
+  'use strict';
+
+  var MAX_FILE_BYTES = 5 * 1024 * 1024;
+  var MAX_ITEMS = 3000;
+  var MAX_TEXT_LEN = 1000;
+  var MAX_ID_LEN = 80;
+  var DEFAULT_COLOR = '#6b7280';
+  var ALLOWED_SHAPES = {rect:1, triangle:1, circle:1, arrow:1, 'double-arrow':1, star:1, line:1};
+  var ALLOWED_DASH = {solid:1, dashed:1, dotted:1};
+
+  function isObj(v){ return v && typeof v === 'object' && !Array.isArray(v); }
+  function arr(v){ return Array.isArray(v) ? v.slice(0, MAX_ITEMS) : []; }
+  function finite(v, fallback, min, max){
+    var n = Number(v);
+    if(!Number.isFinite(n)) n = fallback;
+    if(Number.isFinite(min) && n < min) n = min;
+    if(Number.isFinite(max) && n > max) n = max;
+    return n;
+  }
+  function intNum(v, fallback, min, max){ return Math.round(finite(v, fallback, min, max)); }
+  function bool(v){ return v === true; }
+  function text(v, maxLen){
+    var s = (v == null) ? '' : String(v);
+    s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+    return s.slice(0, maxLen || MAX_TEXT_LEN);
+  }
+  function idText(v, prefix, index){
+    var s = text(v, MAX_ID_LEN).replace(/[^A-Za-z0-9:_-]/g, '');
+    return s || (prefix + index);
+  }
+  function color(v, fallback){
+    var s = text(v, 32).trim();
+    return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : (fallback || DEFAULT_COLOR);
+  }
+  function knownComponentType(type){
+    try{ return !!(typeof DEFS !== 'undefined' && DEFS && DEFS[type]); }
+    catch(e){ return false; }
+  }
+  function componentType(v){
+    var t = text(v, 40);
+    return knownComponentType(t) ? t : null;
+  }
+  function safeCounter(v, fallback){ return intNum(v, fallback, 0, 10000000); }
+
+  function sanitizeComponents(src){
+    var out = [];
+    arr(src).forEach(function(c, i){
+      if(!isObj(c)) return;
+      var type = componentType(c.type);
+      if(!type) return;
+      out.push({
+        id: idText(c.id, 'c', i + 1),
+        type: type,
+        x: finite(c.x, 0, -1000000, 1000000),
+        y: finite(c.y, 0, -1000000, 1000000),
+        rotation: intNum(c.rotation, 0, -3600, 3600),
+        flip: bool(c.flip),
+        ref: text(c.ref, 80),
+        value: text(c.value, 200),
+        model: text(c.model, 200),
+        note: text(c.note, 500),
+        color: color(c.color, DEFAULT_COLOR)
+      });
+    });
+    return out;
+  }
+
+  function sanitizeWires(src){
+    var out = [];
+    arr(src).forEach(function(w, i){
+      if(!isObj(w)) return;
+      out.push({
+        id: idText(w.id, 'w', i + 1),
+        x1: finite(w.x1, 0, -1000000, 1000000),
+        y1: finite(w.y1, 0, -1000000, 1000000),
+        x2: finite(w.x2, 0, -1000000, 1000000),
+        y2: finite(w.y2, 0, -1000000, 1000000),
+        c1: text(w.c1, MAX_ID_LEN),
+        t1: text(w.t1, 40),
+        c2: text(w.c2, MAX_ID_LEN),
+        t2: text(w.t2, 40),
+        color: color(w.color, DEFAULT_COLOR),
+        jump: bool(w.jump)
+      });
+    });
+    return out;
+  }
+
+  function sanitizeJunctions(src){
+    var out = [];
+    arr(src).forEach(function(j, i){
+      if(!isObj(j)) return;
+      out.push({
+        id: idText(j.id, 'j', i + 1),
+        x: finite(j.x, 0, -1000000, 1000000),
+        y: finite(j.y, 0, -1000000, 1000000),
+        color: color(j.color, DEFAULT_COLOR)
+      });
+    });
+    return out;
+  }
+
+  function sanitizeMathLabels(src){
+    var out = [];
+    arr(src).forEach(function(m, i){
+      if(!isObj(m)) return;
+      var mode = text(m.mode, 10);
+      if(mode !== 'math') mode = 'text';
+      out.push({
+        id: idText(m.id, 'm', i + 1),
+        src: text(m.src, MAX_TEXT_LEN),
+        mode: mode,
+        x: finite(m.x, 0, -1000000, 1000000),
+        y: finite(m.y, 0, -1000000, 1000000),
+        color: color(m.color, '#1a1a1a'),
+        size: intNum(m.size, 16, 8, 72),
+        bold: bool(m.bold),
+        italic: bool(m.italic),
+        w: finite(m.w, 0, 0, 2000),
+        h: finite(m.h, 0, 0, 2000)
+      });
+    });
+    return out;
+  }
+
+  function sanitizeShapes(src){
+    var out = [];
+    arr(src).forEach(function(sh, i){
+      if(!isObj(sh)) return;
+      var kind = text(sh.kind, 30);
+      if(!ALLOWED_SHAPES[kind]) return;
+      var strokeDash = text(sh.strokeDash, 20) || 'solid';
+      if(!ALLOWED_DASH[strokeDash]) strokeDash = 'solid';
+      out.push({
+        id: idText(sh.id, 's', i + 1),
+        kind: kind,
+        filled: bool(sh.filled),
+        x: finite(sh.x, 0, -1000000, 1000000),
+        y: finite(sh.y, 0, -1000000, 1000000),
+        rotation: intNum(sh.rotation, 0, -3600, 3600),
+        flip: bool(sh.flip),
+        w: finite(sh.w, 0, 0, 5000),
+        h: finite(sh.h, 0, 0, 5000),
+        color: color(sh.color, DEFAULT_COLOR),
+        strokeColor: color(sh.strokeColor, color(sh.color, DEFAULT_COLOR)),
+        fillColor: color(sh.fillColor, '#ffffff'),
+        fillEnabled: bool(sh.fillEnabled),
+        strokeWidth: finite(sh.strokeWidth, (typeof getLineWidth === 'function' ? getLineWidth() : 1.6), 0.2, 20),
+        strokeDash: strokeDash
+      });
+    });
+    return out;
+  }
+
+  function sanitizeCircuitData(d){
+    if(!isObj(d)) throw new Error('JSONの最上位がオブジェクトではありません');
+    var safe = {
+      components: sanitizeComponents(d.components),
+      wires: sanitizeWires(d.wires),
+      junctions: sanitizeJunctions(d.junctions),
+      mathLabels: sanitizeMathLabels(d.mathLabels),
+      shapes: sanitizeShapes(d.shapes),
+      counters: {},
+      view: {},
+      settings: {}
+    };
+    safe.counters.cid = safeCounter(d.counters && d.counters.cid, safe.components.length);
+    safe.counters.wid = safeCounter(d.counters && d.counters.wid, safe.wires.length);
+    safe.counters.jid = safeCounter(d.counters && d.counters.jid, safe.junctions.length);
+    safe.counters.mid = safeCounter(d.counters && d.counters.mid, safe.mathLabels.length);
+    safe.counters.sid = safeCounter(d.counters && d.counters.sid, safe.shapes.length);
+    safe.view.viewX = finite(d.view && d.view.viewX, 0, -1000000, 1000000);
+    safe.view.viewY = finite(d.view && d.view.viewY, 0, -1000000, 1000000);
+    safe.view.viewScale = finite(d.view && d.view.viewScale, 1, 0.05, 20);
+    safe.settings.circuitLineWidth = finite(d.settings && d.settings.circuitLineWidth, (typeof getLineWidth === 'function' ? getLineWidth() : 1.6), 0.2, 20);
+    return safe;
+  }
+
+  window.sanitizeCircuitData = sanitizeCircuitData;
+
+  window.loadCircuitFile = loadCircuitFile = function(event){
+    var input = event && event.target;
+    var file = input && input.files && input.files[0];
+    if(!file) return;
+    if(file.size > MAX_FILE_BYTES){
+      alert('ファイルサイズが大きすぎます。5MB以下の回路JSONを選んでください。');
+      input.value = '';
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(String(reader.result || ''));
+        var d = sanitizeCircuitData(parsed);
+        saveState();
+        components = d.components;
+        wires = d.wires;
+        junctions = d.junctions;
+        mathLabels = d.mathLabels;
+        shapes = d.shapes;
+        cid = d.counters.cid; wid = d.counters.wid; jid = d.counters.jid; mid = d.counters.mid; sid = d.counters.sid;
+        if(typeof window.setCircuitLineWidth === 'function') window.setCircuitLineWidth(d.settings.circuitLineWidth, true);
+        else window.circuitLineWidth = d.settings.circuitLineWidth;
+        try{ localStorage.setItem('circuitLineWidth', String(d.settings.circuitLineWidth)); }catch(e){}
+        viewX = d.view.viewX; viewY = d.view.viewY; viewScale = d.view.viewScale;
+        applyView();
+        selectedIds.clear();
+        selectedWireId = null;
+        renderAll();
+        showProps();
+        runChecks();
+      }catch(err){
+        console.error(err);
+        alert('読み込みに失敗しました。JSON形式または内容が不正な回路ファイルです。');
+      }
+      if(input) input.value = '';
+    };
+    reader.onerror = function(){
+      alert('ファイルを読み込めませんでした。');
+      if(input) input.value = '';
+    };
+    reader.readAsText(file);
+  };
+})();
+</script>
