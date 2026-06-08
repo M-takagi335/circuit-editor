@@ -296,7 +296,7 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
   <button class="color-swatch" style="--c:#1a1a1a;background-color:#1a1a1a" onclick="setDrawColor('#1a1a1a',this)" title="黒"></button>
   <button class="color-swatch" style="--c:#dc2626;background-color:#dc2626" onclick="setDrawColor('#dc2626',this)" title="赤"></button>
   <button class="color-swatch" style="--c:#2563eb;background-color:#2563eb" onclick="setDrawColor('#2563eb',this)" title="青"></button>
-  <input class="toolbar-input" id="custom-color" type="color" value="#6b7280" onchange="setDrawColor(this.value)" title="自由色">
+  <input class="toolbar-input" id="custom-color" type="color" value="#6b7280" oninput="setDrawColor(this.value)" onchange="setDrawColor(this.value)" title="自由色">
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="saveCircuitFile()">💾 保存</button>
   <button class="tb-btn" onclick="document.getElementById('load-file').click()">📂 読込</button>
@@ -889,6 +889,10 @@ function renderComp(c){
         if(!e.shiftKey) selectedIds.clear();
         selectedIds.add(c.id);
         renderAll(); showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete(c.id);
+        renderAll(); showProps();
+        return;
       }
       const pt = svgPt(e);
       // Set up drag for all selected; save the pre-drag state so Ctrl+Z restores correctly
@@ -1172,6 +1176,10 @@ canvas.addEventListener('mousemove', e => {
         const sid = id.slice(6);
         const sh = shapes.find(x=>x.id===sid);
         if(sh){ sh.x=snap(dragging.origPositions[id].x+dx); sh.y=snap(dragging.origPositions[id].y+dy); }
+      } else if(id.startsWith('junction:')){
+        const jid_ = id.slice(9);
+        const jj = junctions.find(x=>x.id===jid_);
+        if(jj){ jj.x=snap(dragging.origPositions[id].x+dx); jj.y=snap(dragging.origPositions[id].y+dy); }
       } else {
         const comp = components.find(c=>c.id===id);
         if(!comp) continue;
@@ -1979,7 +1987,15 @@ function renderShape(sh){
     if(placingType||placingShape) return;
     if(tool==='select'){
       e.stopPropagation();
-      if(!selectedIds.has('shape:'+sh.id)){ if(!e.shiftKey) selectedIds.clear(); selectedIds.add('shape:'+sh.id); renderAll(); showProps(); }
+      if(!selectedIds.has('shape:'+sh.id)){
+        if(!e.shiftKey) selectedIds.clear();
+        selectedIds.add('shape:'+sh.id);
+        renderAll(); showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete('shape:'+sh.id);
+        renderAll(); showProps();
+        return;
+      }
       saveState();
       dragging={startPt:svgPt(e), origPositions:{}};
       selectedIds.forEach(id=>{
@@ -2025,8 +2041,23 @@ function renderAll(){
     g.addEventListener('mousedown', e => {
       if(placingType||placingShape) return;
       if(tool==='select'){
-        e.stopPropagation(); selectedIds.clear(); selectedIds.add('math:'+m.id); saveState();
-        dragging = {startPt: svgPt(e), origPositions:{}}; dragging.origPositions['math:'+m.id] = {x:m.x, y:m.y}; dragMoved = false; renderAll(); showProps();
+        e.stopPropagation();
+        if(!selectedIds.has('math:'+m.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add('math:'+m.id);
+          renderAll(); showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete('math:'+m.id);
+          renderAll(); showProps();
+          return;
+        }
+        saveState();
+        dragging = {startPt: svgPt(e), origPositions:{}};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y}; });
+        mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+        junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
       }
     });
     document.getElementById('math-layer').appendChild(g);
@@ -2419,8 +2450,23 @@ function renderAll(){
     g.addEventListener('mousedown', e => {
       if(placingType||placingShape) return;
       if(tool==='select'){
-        e.stopPropagation(); selectedIds.clear(); selectedIds.add('math:'+m.id); saveState();
-        dragging = {startPt: svgPt(e), origPositions:{}}; dragging.origPositions['math:'+m.id] = {x:m.x, y:m.y}; dragMoved = false; renderAll(); showProps();
+        e.stopPropagation();
+        if(!selectedIds.has('math:'+m.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add('math:'+m.id);
+          renderAll(); showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete('math:'+m.id);
+          renderAll(); showProps();
+          return;
+        }
+        saveState();
+        dragging = {startPt: svgPt(e), origPositions:{}};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y}; });
+        mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+        junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
       }
     });
     g.addEventListener('dblclick', e=>{ e.stopPropagation(); editSelectedTextInPanel(); });
@@ -2528,7 +2574,15 @@ function renderShape(sh){
     if(placingType||placingShape) return;
     if(tool==='select'){
       e.stopPropagation();
-      if(!selectedIds.has('shape:'+sh.id)){ if(!e.shiftKey) selectedIds.clear(); selectedIds.add('shape:'+sh.id); renderAll(); showProps(); }
+      if(!selectedIds.has('shape:'+sh.id)){
+        if(!e.shiftKey) selectedIds.clear();
+        selectedIds.add('shape:'+sh.id);
+        renderAll(); showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete('shape:'+sh.id);
+        renderAll(); showProps();
+        return;
+      }
       saveState(); dragging={startPt:svgPt(e), origPositions:{}};
       selectedIds.forEach(id=>{
         if(id.startsWith('shape:')){ const a=shapes.find(x=>x.id===id.slice(6)); if(a) dragging.origPositions[id]={x:a.x,y:a.y}; }
@@ -3171,9 +3225,20 @@ renderAll();
       if(tool !== 'select') return;
       e.stopPropagation();
       const already = selectedIds.has('math:'+m.id);
-      if(!already){ selectedIds.clear(); selectedIds.add('math:'+m.id); renderAll(); showProps(); }
+      if(!already){
+        if(!e.shiftKey) selectedIds.clear();
+        selectedIds.add('math:'+m.id);
+        renderAll(); showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete('math:'+m.id);
+        renderAll(); showProps();
+        return;
+      }
       dragging = {startPt: svgPt(e), origPositions:{}};
-      dragging.origPositions['math:'+m.id] = {x:m.x, y:m.y};
+      components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+      shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y}; });
+      mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+      junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x:j.x, y:j.y}; });
       dragMoved = false;
     });
     g.addEventListener('click', e=>{
@@ -3800,7 +3865,15 @@ renderAll();
       if(tool !== 'select') return;
       e.preventDefault(); e.stopPropagation();
       commitTextEdit();
-      if(!selectedIds.has('math:'+m.id)){ selectedIds.clear(); selectedIds.add('math:'+m.id); renderAll(); showProps(); }
+      if(!selectedIds.has('math:'+m.id)){
+        if(!e.shiftKey) selectedIds.clear();
+        selectedIds.add('math:'+m.id);
+        renderAll(); showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete('math:'+m.id);
+        renderAll(); showProps();
+        return;
+      }
       textDrag = {id:m.id, start:svgPt(e), ox:m.x, oy:m.y};
       suppressTextEdit = false;
     });
@@ -4322,13 +4395,20 @@ renderAll();
         e.preventDefault();
         e.stopPropagation();
         if(!selectedIds.has('math:'+m.id)){
-          selectedIds.clear();
+          if(!e.shiftKey) selectedIds.clear();
           selectedIds.add('math:'+m.id);
           showProps();
           renderAll();
+        } else if(e.shiftKey){
+          selectedIds.delete('math:'+m.id);
+          renderAll(); showProps();
+          return;
         }
         dragging = {startPt:svgPt(e), origPositions:{}};
-        dragging.origPositions['math:'+m.id] = {x:m.x,y:m.y};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y}; });
+        mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+        junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x:j.x, y:j.y}; });
         dragMoved = false;
       });
       g.addEventListener('dblclick',e=>{
@@ -4883,13 +4963,20 @@ renderAll();
         e.preventDefault();
         e.stopPropagation();
         if(!selectedIds.has('math:' + m.id)){
-          selectedIds.clear();
+          if(!e.shiftKey) selectedIds.clear();
           selectedIds.add('math:' + m.id);
           renderAll();
           showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete('math:' + m.id);
+          renderAll(); showProps();
+          return;
         }
         dragging = {startPt: svgPt(e), origPositions: {}};
-        dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y};
+        components.forEach(comp => { if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        shapes.forEach(sh => { if(selectedIds.has('shape:'+sh.id)) dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y}; });
+        mathLabels.forEach(mm => { if(selectedIds.has('math:'+mm.id)) dragging.origPositions['math:'+mm.id] = {x:mm.x, y:mm.y}; });
+        junctions.forEach(j => { if(selectedIds.has('junction:'+j.id)) dragging.origPositions['junction:'+j.id] = {x:j.x, y:j.y}; });
         dragMoved = false;
       });
 
@@ -5291,15 +5378,23 @@ renderAll();
       e.stopPropagation();
       e.preventDefault();
       if(!selectedIds.has('shape:'+sh.id)){
-        selectedIds.clear();
+        if(!e.shiftKey) selectedIds.clear();
         selectedWireId = null;
         selectedIds.add('shape:'+sh.id);
         renderAll();
         showProps();
+      } else if(e.shiftKey){
+        selectedIds.delete('shape:'+sh.id);
+        renderAll(); showProps();
+        return;
       }
       saveState();
       dragging = {startPt: svgPt(e), origPositions:{}};
-      dragging.origPositions['shape:'+sh.id] = {x:sh.x, y:sh.y};
+      selectedIds.forEach(id=>{
+        if(id.startsWith('shape:')){ const a=shapes.find(x=>x.id===id.slice(6)); if(a) dragging.origPositions[id]={x:a.x,y:a.y}; }
+        else if(id.startsWith('math:')){ const m=mathLabels.find(x=>x.id===id.slice(5)); if(m) dragging.origPositions[id]={x:m.x,y:m.y}; }
+        else { const c=components.find(x=>x.id===id); if(c) dragging.origPositions[id]={x:c.x,y:c.y}; }
+      });
       dragMoved = false;
     });
 
@@ -8617,6 +8712,10 @@ body.wire-mode #canvas * {
           if(!e.shiftKey) selectedIds.clear();
           selectedIds.add(c.id);
           renderAll(); showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
         }
         const pt = svgPt(e);
         saveState();
@@ -8959,6 +9058,10 @@ body.wire-mode #canvas * {
           selectedIds.add('junction:'+j.id);
           renderAll();
           showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete('junction:'+j.id);
+          renderAll(); showProps();
+          return;
         }
         const pt = svgPt(e);
         saveState();
@@ -9017,6 +9120,10 @@ body.wire-mode #canvas * {
             selectedIds.add('math:'+m.id);
             renderAll();
             showProps();
+          } else if(e.shiftKey){
+            selectedIds.delete('math:'+m.id);
+            renderAll(); showProps();
+            return;
           }
           saveState();
           dragging = {startPt: svgPt(e), origPositions:{}};
@@ -9794,6 +9901,10 @@ body.wire-mode #canvas * {
           if(!e.shiftKey) selectedIds.clear();
           selectedIds.add(c.id);
           renderAll(); showProps();
+        } else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
         }
         const pt = svgPt(e);
         saveState();
@@ -10162,8 +10273,24 @@ window.renderShape=renderShape=function(sh){
     if(placingType||placingShape) return;
     if(tool!=='select') return;
     ev.stopPropagation();ev.preventDefault();
-    if(!selectedIds.has('shape:'+sh.id)){selectedIds.clear();selectedWireId=null;selectedIds.add('shape:'+sh.id);renderAll();showProps();}
-    saveState();dragging={startPt:svgPt(ev),origPositions:{}};dragging.origPositions['shape:'+sh.id]={x:sh.x,y:sh.y};dragMoved=false;
+    if(!selectedIds.has('shape:'+sh.id)){
+      if(!ev.shiftKey) selectedIds.clear();
+      selectedWireId=null;
+      selectedIds.add('shape:'+sh.id);
+      renderAll();showProps();
+    } else if(ev.shiftKey){
+      selectedIds.delete('shape:'+sh.id);
+      renderAll();showProps();
+      return;
+    }
+    saveState();
+    dragging={startPt:svgPt(ev),origPositions:{}};
+    selectedIds.forEach(function(id){
+      if(id.startsWith('shape:')){ var a=shapes.find(function(x){return x.id===id.slice(6);}); if(a) dragging.origPositions[id]={x:a.x,y:a.y}; }
+      else if(id.startsWith('math:')){ var mm=mathLabels.find(function(x){return x.id===id.slice(5);}); if(mm) dragging.origPositions[id]={x:mm.x,y:mm.y}; }
+      else { var cc=components.find(function(x){return x.id===id;}); if(cc) dragging.origPositions[id]={x:cc.x,y:cc.y}; }
+    });
+    dragMoved=false;
   });
   return g;
 };
@@ -11359,6 +11486,123 @@ renderAll();showProps();
   bindPngButtonFixed();
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindPngButtonFixed);
   window.addEventListener('load', bindPngButtonFixed);
+})();
+</script>
+
+<script id="custom-color-palette-apply-fix">
+// ===== カラーパレット自由色の反映修正 =====
+// type="color" は環境によって change の発火タイミングが遅い/不安定なため、
+// input/change の両方で現在色と選択中要素へ確実に反映する。
+(function(){
+  if(window.__customColorPaletteApplyFixInstalled) return;
+  window.__customColorPaletteApplyFixInstalled = true;
+
+  function normalizeColor(value){
+    if(!value) return null;
+    value = String(value).trim();
+    if(/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+    if(/^#[0-9a-f]{3}$/i.test(value)){
+      return ('#' + value.slice(1).split('').map(function(ch){ return ch + ch; }).join('')).toLowerCase();
+    }
+    var m = value.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if(m){
+      return '#' + [m[1],m[2],m[3]].map(function(n){
+        n = Math.max(0, Math.min(255, parseInt(n,10)||0));
+        return n.toString(16).padStart(2,'0');
+      }).join('');
+    }
+    return value;
+  }
+
+  function selectedWireIdsForToolbarColor(){
+    var ids = new Set();
+    if(window.selectedIds || typeof selectedIds !== 'undefined'){
+      selectedIds.forEach(function(id){
+        if(typeof id === 'string' && id.indexOf('wire:') === 0) ids.add(id.slice(5));
+      });
+    }
+    if(typeof selectedWireId !== 'undefined' && selectedWireId) ids.add(selectedWireId);
+    return ids;
+  }
+
+  function setActiveSwatch(color, el){
+    var swatches = document.querySelectorAll('.color-swatch');
+    swatches.forEach(function(x){ x.classList.remove('active'); });
+    if(el){ el.classList.add('active'); return; }
+    swatches.forEach(function(x){
+      var c = normalizeColor(x.style.backgroundColor || x.style.getPropertyValue('--c') || x.getAttribute('data-color'));
+      if(c === color) x.classList.add('active');
+    });
+  }
+
+  function applyToolbarColor(color, el){
+    color = normalizeColor(color) || '#1a1a1a';
+    currentColor = color;
+
+    var custom = document.getElementById('custom-color');
+    if(custom && /^#[0-9a-f]{6}$/i.test(color)) custom.value = color;
+    setActiveSwatch(color, el || null);
+
+    var wireIds = selectedWireIdsForToolbarColor();
+    var hasSelectedIds = (typeof selectedIds !== 'undefined' && selectedIds && selectedIds.size > 0);
+    var hasSelection = hasSelectedIds || wireIds.size > 0;
+
+    if(hasSelection && typeof saveState === 'function') saveState();
+
+    wireIds.forEach(function(id){
+      var w = wires.find(function(x){ return x.id === id; });
+      if(w) w.color = color;
+    });
+
+    if(hasSelectedIds){
+      selectedIds.forEach(function(id){
+        if(typeof id !== 'string' || id.indexOf('wire:') === 0) return;
+        if(id.indexOf('shape:') === 0){
+          var sh = shapes.find(function(x){ return x.id === id.slice(6); });
+          if(sh){
+            if(typeof normalizeShapeStyle === 'function') normalizeShapeStyle(sh);
+            sh.color = color;
+            sh.strokeColor = color;
+            if(sh.filled || sh.fillEnabled) sh.fillColor = color;
+          }
+        }else if(id.indexOf('math:') === 0){
+          var m = mathLabels.find(function(x){ return x.id === id.slice(5); });
+          if(m) m.color = color;
+        }else if(id.indexOf('junction:') === 0){
+          var j = junctions.find(function(x){ return x.id === id.slice(9); });
+          if(j) j.color = color;
+        }else{
+          var c = components.find(function(x){ return x.id === id; });
+          if(c) c.color = color;
+        }
+      });
+    }
+
+    if(hasSelection){
+      if(typeof renderAll === 'function') renderAll();
+      if(typeof showProps === 'function') showProps();
+      if(typeof runChecks === 'function') runChecks();
+    }
+
+    // 配置中のゴーストも、自由色を選んだ瞬間に更新する。
+    if(typeof updateGhost === 'function' && ((typeof placingType !== 'undefined' && placingType) || (typeof placingShape !== 'undefined' && placingShape))){
+      updateGhost(lastMouseWorld || {x:0,y:0});
+    }
+  }
+
+  window.setDrawColor = setDrawColor = applyToolbarColor;
+
+  function bindCustomColorInput(){
+    var input = document.getElementById('custom-color');
+    if(!input || input.__customColorPaletteApplyFixBound) return;
+    input.__customColorPaletteApplyFixBound = true;
+    input.addEventListener('input', function(){ applyToolbarColor(input.value, null); });
+    input.addEventListener('change', function(){ applyToolbarColor(input.value, null); });
+  }
+
+  bindCustomColorInput();
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindCustomColorInput);
+  window.addEventListener('load', bindCustomColorInput);
 })();
 </script>
 
