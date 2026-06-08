@@ -312,28 +312,28 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
   <div id="palette">
     <div class="pal-section">
       <div class="pal-title">受動素子</div>
-      <div class="pal-item" id="pal-resistor" onclick="startPlace('resistor')">
+      <div class="pal-item" id="pal-resistor" onclick="startPlace('resistor')" title="ショートカット: R">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="9" y2="14" stroke="#333" stroke-width="1.5"/><rect x="9" y="8" width="22" height="12" rx="1" fill="none" stroke="#333" stroke-width="1.5"/><line x1="31" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
-        <span class="pal-name">抵抗</span>
+        <span class="pal-name">抵抗 <span style="font-size:9px;color:#aaa;font-weight:600">[R]</span></span>
       </div>
-      <div class="pal-item" id="pal-capacitor" onclick="startPlace('capacitor')">
+      <div class="pal-item" id="pal-capacitor" onclick="startPlace('capacitor')" title="ショートカット: C">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="17" y2="14" stroke="#333" stroke-width="1.5"/><line x1="17" y1="6" x2="17" y2="22" stroke="#333" stroke-width="2"/><line x1="23" y1="6" x2="23" y2="22" stroke="#333" stroke-width="2"/><line x1="23" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
-        <span class="pal-name">コンデンサ</span>
+        <span class="pal-name">コンデンサ <span style="font-size:9px;color:#aaa;font-weight:600">[C]</span></span>
       </div>
       <div class="pal-item" id="pal-electrolytic" onclick="startPlace('electrolytic')">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="17" y2="14" stroke="#333" stroke-width="1.5"/><line x1="17" y1="6" x2="17" y2="22" stroke="#333" stroke-width="2"/><rect x="21" y="6" width="4" height="16" fill="#333"/><line x1="25" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/><text x="14" y="6" font-size="8" fill="#333">+</text></svg>
         <span class="pal-name">電解コンデンサ</span>
       </div>
-      <div class="pal-item" id="pal-inductor" onclick="startPlace('inductor')">
+      <div class="pal-item" id="pal-inductor" onclick="startPlace('inductor')" title="ショートカット: L">
         <svg class="pal-icon" viewBox="0 0 48 28"><line x1="2" y1="14" x2="8" y2="14" stroke="#333" stroke-width="1.5"/><path d="M8 14 A5 5 0 0 1 18 14 A5 5 0 0 1 28 14 A5 5 0 0 1 38 14" fill="none" stroke="#333" stroke-width="1.7"/><line x1="38" y1="14" x2="46" y2="14" stroke="#333" stroke-width="1.5"/></svg>
-        <span class="pal-name">コイル</span>
+        <span class="pal-name">コイル <span style="font-size:9px;color:#aaa;font-weight:600">[L]</span></span>
       </div>
     </div>
     <div class="pal-section">
       <div class="pal-title">半導体</div>
-      <div class="pal-item" id="pal-diode" onclick="startPlace('diode')">
+      <div class="pal-item" id="pal-diode" onclick="startPlace('diode')" title="ショートカット: D">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="13" y2="14" stroke="#333" stroke-width="1.5"/><polygon points="13,7 13,21 23,14" fill="#333"/><line x1="23" y1="7" x2="23" y2="21" stroke="#333" stroke-width="2"/><line x1="23" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
-        <span class="pal-name">ダイオード</span>
+        <span class="pal-name">ダイオード <span style="font-size:9px;color:#aaa;font-weight:600">[D]</span></span>
       </div>
       <div class="pal-item" id="pal-led" onclick="startPlace('led')">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="13" y2="14" stroke="#333" stroke-width="1.5"/><polygon points="13,7 13,21 23,14" fill="#333"/><line x1="23" y1="7" x2="23" y2="21" stroke="#333" stroke-width="2"/><line x1="23" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/><line x1="25" y1="5" x2="30" y2="1" stroke="#333" stroke-width="1.2"/><line x1="29" y1="8" x2="35" y2="3" stroke="#333" stroke-width="1.2"/></svg>
@@ -1378,6 +1378,13 @@ document.addEventListener('keydown', e => {
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v'){ e.preventDefault(); pasteSelectionAtMouse(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){ deleteSelected(); return; }
   if(e.key.toLowerCase()==='w'){ e.preventDefault(); setTool('wire'); return; }
+  // 素子配置ショートカット
+  if(!e.ctrlKey && !e.metaKey && !e.altKey){
+    if(e.key.toLowerCase()==='r'){ e.preventDefault(); if(typeof startPlace==='function') startPlace('resistor'); return; }
+    if(e.key.toLowerCase()==='c'){ e.preventDefault(); if(typeof startPlace==='function') startPlace('capacitor'); return; }
+    if(e.key.toLowerCase()==='l'){ e.preventDefault(); if(typeof startPlace==='function') startPlace('inductor'); return; }
+    if(e.key.toLowerCase()==='d'){ e.preventDefault(); if(typeof startPlace==='function') startPlace('diode'); return; }
+  }
 });
 document.addEventListener('keyup', e => {
   if(e.code==='Space'){ spaceDown=false; canvasWrap.classList.remove('pan-ready'); }
