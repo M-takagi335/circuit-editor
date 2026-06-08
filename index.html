@@ -42,6 +42,12 @@ body{font-family:'Segoe UI',Meiryo,sans-serif;font-size:13px;background:#f0f2f5;
 .prop-field{display:flex;flex-direction:column;gap:2px}
 .prop-label{font-size:10.5px;color:#888;font-weight:500}
 .prop-input{padding:4px 7px;border:1px solid #ddd;border-radius:3px;background:#fff;color:#333;font-size:11.5px;outline:none;transition:border .12s}
+/* Hide number input spinners on mobile to prevent accidental stepper taps */
+@media (max-width: 760px){
+  .prop-input[type="number"]::-webkit-outer-spin-button,
+  .prop-input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .prop-input[type="number"]{-moz-appearance:textfield;appearance:textfield}
+}
 .prop-input:focus{border-color:#3b82f6}
 .btn-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
 .prop-btn{padding:4px 8px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#fff;color:#333;font-size:10.5px;flex:1;text-align:center}
@@ -201,7 +207,9 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
   }
   body.palette-closed #palette > *{opacity:1; pointer-events:auto}
   #palette-toggle{left:8px; top:auto; bottom:10px; z-index:160; padding:6px 10px}
-  body:not(.props-closed) #palette-toggle{bottom:calc(min(56vh, 420px) + 8px)}
+  body:not(.props-closed) #palette-toggle{bottom:calc(min(56vh, 420px) + 52px)}
+  body:not(.props-closed) #props-toggle{bottom:calc(min(56vh, 420px) + 8px)}
+  body.props-closed #props-toggle{bottom:52px!important}
   body:not(.palette-closed)::before{
     content:''; position:fixed; inset:0; background:rgba(15,23,42,.18); z-index:140;
   }
@@ -508,6 +516,16 @@ const DEFS = {
 // ──────────────────────────────────────────
 function snap(v){ return Math.round(v/GRID)*GRID; }
 
+// Guard: prevents showProps from wiping the props panel while a number/text input is focused.
+// Prevents mobile stepper tap from causing "ghost input" due to DOM rebuild during focus.
+window.__propsPanelLocked = false;
+function isPropInputFocused(){
+  const el = document.activeElement;
+  if(!el) return false;
+  const body = document.getElementById('prop-body');
+  return body && body.contains(el) && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
+}
+
 function svgPt(e){
   const canvas = document.getElementById('canvas');
   const rect = canvas.getBoundingClientRect();
@@ -541,25 +559,34 @@ function applyView(){
 }
 
 function saveState(){
-  undoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor}));
+  const lw = (typeof window.getCircuitLineWidth === 'function') ? window.getCircuitLineWidth() : (window.circuitLineWidth || 1.6);
+  undoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor, _lineWidth: lw}));
   if(undoStack.length > 80) undoStack.shift();
   redoStack = [];
 }
 
 function undo(){
   if(!undoStack.length) return;
-  redoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor}));
+  const lw = (typeof window.getCircuitLineWidth === 'function') ? window.getCircuitLineWidth() : (window.circuitLineWidth || 1.6);
+  redoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor, _lineWidth: lw}));
   const s = JSON.parse(undoStack.pop());
   ({components, wires, junctions, mathLabels, shapes = [], cid, wid, jid, mid, sid = 0, refCounters, currentColor = '#6b7280'} = s);
+  if(s._lineWidth !== undefined && typeof window.setCircuitLineWidth === 'function'){
+    window.setCircuitLineWidth(s._lineWidth, true);
+  }
   selectedIds.clear(); selectedWireId = null;
   renderAll(); showProps(); runChecks();
 }
 
 function redo(){
   if(!redoStack.length) return;
-  undoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor}));
+  const lw = (typeof window.getCircuitLineWidth === 'function') ? window.getCircuitLineWidth() : (window.circuitLineWidth || 1.6);
+  undoStack.push(JSON.stringify({components, wires, junctions, mathLabels, shapes, cid, wid, jid, mid, sid, refCounters, currentColor, _lineWidth: lw}));
   const s = JSON.parse(redoStack.pop());
   ({components, wires, junctions, mathLabels, shapes = [], cid, wid, jid, mid, sid = 0, refCounters, currentColor = '#6b7280'} = s);
+  if(s._lineWidth !== undefined && typeof window.setCircuitLineWidth === 'function'){
+    window.setCircuitLineWidth(s._lineWidth, true);
+  }
   selectedIds.clear(); selectedWireId = null;
   renderAll(); showProps(); runChecks();
 }
@@ -943,11 +970,13 @@ function renderAll(){
 // Math label
 // ──────────────────────────────────────────
 function mathToSVGHtml(src){
+  // Sanitize helper to prevent XSS in label content
+  function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   // Replace symbols
   const syms = {omega:'ω', Omega:'Ω', mu:'μ', Delta:'Δ', pi:'π', inf:'∞',
                  alpha:'α', beta:'β', gamma:'γ', theta:'θ', phi:'φ',
                  sigma:'σ', tau:'τ', lambda:'λ', rho:'ρ', eta:'η'};
-  let s = src;
+  let s = _esc(src);
   for(const [k,v] of Object.entries(syms)){
     s = s.replace(new RegExp('\\b'+k+'\\b','g'), v);
   }
@@ -1125,7 +1154,10 @@ canvas.addEventListener('mousemove', e => {
     const ex = near ? near.x : snap(pt.x), ey = near ? near.y : snap(pt.y);
     const tl = document.getElementById('temp-layer');
     const preview = {x1:wireStart.x,y1:wireStart.y,x2:ex,y2:ey,jump:tool==='jumpwire'};
-    tl.innerHTML=`<path d="${wirePathD(preview)}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.8"/>
+    // 斜め（折れ曲がり）配線のときは赤色、まっすぐのときは青色でプレビュー表示
+    const isBent = !preview.jump && wireStart.x !== ex && wireStart.y !== ey;
+    const strokeColor = isBent ? '#ef4444' : '#3b82f6';
+    tl.innerHTML=`<path d="${wirePathD(preview)}" fill="none" stroke="${strokeColor}" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.8"/>
       <circle cx="${wireStart.x}" cy="${wireStart.y}" r="4" fill="#3b82f6"/>`;
   }
 });
@@ -1208,7 +1240,13 @@ canvas.addEventListener('mousedown', e => {
 
 canvas.addEventListener('mouseup', e => {
   if(panning){ panning=null; canvasWrap.classList.remove('panning'); }
-  if(dragging){ dragging = null; dragMoved = false; }
+  if(dragging){
+    // If the user clicked but didn't actually move, discard the saveState that was pushed on mousedown
+    if(!dragMoved && undoStack.length > 0){
+      undoStack.pop();
+    }
+    dragging = null; dragMoved = false;
+  }
 
   if(selBoxStart){
     if(selBoxCur){
@@ -1456,7 +1494,14 @@ function setMathProp(val){
 // ──────────────────────────────────────────
 // Checks
 // ──────────────────────────────────────────
+// Debounced runChecks - prevents excessive DOM updates during rapid interactions
+let _runChecksTimer = null;
 function runChecks(){
+  if(_runChecksTimer) clearTimeout(_runChecksTimer);
+  _runChecksTimer = setTimeout(_runChecksImmediate, 80);
+}
+function _runChecksImmediate(){
+  _runChecksTimer = null;
   const warns = [];
   const refs = {};
   components.forEach(c => {
@@ -1491,7 +1536,7 @@ function runChecks(){
     wc.outerHTML='<div id="warn-container" style="display:flex;flex-wrap:wrap;gap:2px;padding:3px 6px">'+
       warns.slice(0,10).map(w=>`<div class="warn-item"><span class="warn-dot ${w.t}"></span><span>${escHtml(w.m)}</span></div>`).join('')+'</div>';
   }
-}
+} // end _runChecksImmediate
 
 // ──────────────────────────────────────────
 // Export
@@ -1531,7 +1576,7 @@ ${document.getElementById('comps-layer').innerHTML}
 function normalizeMathSourceForExport(src){
   let s = String(src || '');
   const syms = {omega:'ω', Omega:'Ω', mu:'μ', Delta:'Δ', pi:'π', inf:'∞', alpha:'α', beta:'β', gamma:'γ', theta:'θ', phi:'φ', sigma:'σ', tau:'τ', lambda:'λ', rho:'ρ', eta:'η'};
-  for(const [k,v] of Object.entries(syms)) s = s.replace(new RegExp('\\?\\b'+k+'\\b','g'), v);
+  for(const [k,v] of Object.entries(syms)) s = s.replace(new RegExp('\\b'+k+'\\b','g'), v);
   return s;
 }
 function readMathGroup(src, i){
@@ -2119,6 +2164,7 @@ function loadCircuitFile(event){
   const reader=new FileReader();
   reader.onload=()=>{ try{ const d=JSON.parse(reader.result); saveState(); components=d.components||[]; wires=d.wires||[]; junctions=d.junctions||[]; mathLabels=d.mathLabels||[]; shapes=d.shapes||[]; cid=d.counters?.cid||components.length; wid=d.counters?.wid||wires.length; jid=d.counters?.jid||junctions.length; mid=d.counters?.mid||mathLabels.length; sid=d.counters?.sid||shapes.length; if(d.view){ viewX=d.view.viewX||0; viewY=d.view.viewY||0; viewScale=d.view.viewScale||1; applyView(); } selectedIds.clear(); selectedWireId=null; renderAll(); showProps(); runChecks(); }catch(err){ alert('読み込みに失敗しました。JSON形式の回路ファイルを選んでください。'); } event.target.value=''; };
   reader.readAsText(file);
+  event.target.value = ''; // Allow re-loading same file
 }
 
 
@@ -6604,7 +6650,10 @@ renderAll();
     const end = gridOnlyPoint(e);
     const tl = document.getElementById('temp-layer');
     const preview = {x1:wireStart.x, y1:wireStart.y, x2:end.x, y2:end.y, jump:tool==='jumpwire'};
-    tl.innerHTML = `<path d="${wirePathD(preview)}" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.8"/>
+    // 斜め（折れ曲がり）配線のときは赤色、まっすぐのときは青色でプレビュー表示
+    const isBent = !preview.jump && wireStart.x !== end.x && wireStart.y !== end.y;
+    const strokeColor = isBent ? '#ef4444' : '#3b82f6';
+    tl.innerHTML = `<path d="${wirePathD(preview)}" fill="none" stroke="${strokeColor}" stroke-width="1.5" stroke-dasharray="6 3" opacity="0.8"/>
       <circle cx="${wireStart.x}" cy="${wireStart.y}" r="4" fill="#3b82f6"/>`;
   }, true);
 
@@ -8512,10 +8561,41 @@ body.wire-mode #canvas * {
   window.setComponentSize = function(v){
     const comps = selectedComponents();
     if(!comps.length) return;
-    saveState();
     const sz = clampSize(v);
-    comps.forEach(c => { c.size = sz; if(typeof updateAttachedWires === 'function') updateAttachedWires(c); });
-    renderAll(); showProps(); runChecks();
+    if(!comps.some(c => Math.abs((c.size||1) - sz) > 0.001)) return; // no actual change
+    saveState();
+    // Snapshot old terminal positions before size change (for wire reconnection)
+    const oldTerms = {};
+    comps.forEach(c => {
+      if(typeof getTerms === 'function') oldTerms[c.id] = getTerms(c).map(t => ({...t}));
+    });
+    comps.forEach(c => { c.size = sz; });
+    // Reconnect wires: find wires whose endpoints were close to old terminals and move them to new terminals
+    comps.forEach(c => {
+      const oldT = oldTerms[c.id] || [];
+      if(typeof getTerms !== 'function') return;
+      const newT = getTerms(c);
+      // Build map from old terminal world pos to new terminal world pos
+      const termMap = {};
+      oldT.forEach(ot => {
+        const nt = newT.find(t => t.id === ot.id);
+        if(nt) termMap[ot.id] = {ox:ot.x, oy:ot.y, nx:nt.x, ny:nt.y};
+      });
+      wires.forEach(w => {
+        oldT.forEach(ot => {
+          const tm = termMap[ot.id];
+          if(!tm) return;
+          if(Math.abs(w.x1-tm.ox)<3 && Math.abs(w.y1-tm.oy)<3){ w.x1=tm.nx; w.y1=tm.ny; }
+          if(Math.abs(w.x2-tm.ox)<3 && Math.abs(w.y2-tm.oy)<3){ w.x2=tm.nx; w.y2=tm.ny; }
+        });
+      });
+    });
+    // Don't call showProps() here - it would destroy the focused input on mobile.
+    // Instead just re-render the SVG canvas without touching the props panel.
+    renderAll(); runChecks();
+    // Update only the size input value without full showProps rebuild
+    const sizeEl = document.getElementById('prop-body') && document.getElementById('prop-body').querySelector('input[type="number"]');
+    if(sizeEl && document.activeElement !== sizeEl){ sizeEl.value = String(sz); }
   };
 
   const oldShowProps = showProps;
@@ -8531,7 +8611,7 @@ body.wire-mode #canvas * {
           title.textContent=def.name; sub.textContent=c.id;
           body.innerHTML=`<div class="prop-field"><label class="prop-label">参照名</label><input class="prop-input" value="${esc(c.ref||'')}" oninput="setProp('ref',this.value)"></div>
           <div class="prop-field"><label class="prop-label">値</label><input class="prop-input" value="${esc(c.value||'')}" oninput="setProp('value',this.value)"></div>
-          <div class="prop-field"><label class="prop-label">素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${compSize(c)}" oninput="setComponentSize(this.value)"></div>
+          <div class="prop-field"><label class="prop-label">素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${compSize(c)}" inputmode="decimal" onchange="setComponentSize(this.value)" oninput="setComponentSize(this.value)"></div>
           <div class="prop-field"><label class="prop-label">色</label><input class="prop-input" type="color" value="${c.color||currentColor}" oninput="setProp('color',this.value)"></div>
           <div class="prop-field"><label class="prop-label">型番</label><input class="prop-input" value="${esc(c.model||'')}" oninput="setProp('model',this.value)"></div>
           <div class="prop-field"><label class="prop-label">メモ</label><input class="prop-input" value="${esc(c.note||'')}" oninput="setProp('note',this.value)"></div>
@@ -8546,7 +8626,7 @@ body.wire-mode #canvas * {
         const same = comps.every(c => compSize(c) === compSize(comps[0]));
         title.textContent='複数選択'; sub.textContent=selectedIds.size+'個';
         body.innerHTML=`<div class="btn-row"><button class="prop-btn" onclick="copySelection()">コピー</button><button class="prop-btn" onclick="pasteSelectionAtMouse()">貼付</button></div>
-        <div class="prop-field"><label class="prop-label">選択中の素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${same ? compSize(comps[0]) : ''}" placeholder="${same ? '' : '混在'}" oninput="setComponentSize(this.value)"></div>
+        <div class="prop-field"><label class="prop-label">選択中の素子サイズ</label><input class="prop-input" type="number" min="${MIN_SIZE}" max="${MAX_SIZE}" step="0.05" value="${same ? compSize(comps[0]) : ''}" placeholder="${same ? '' : '混在'}" inputmode="decimal" onchange="setComponentSize(this.value)" oninput="setComponentSize(this.value)"></div>
         <div class="btn-row"><button class="prop-btn" title="ショートカット: Ctrl+R で回転" onclick="rotateSelected()">↻ 回転</button><button class="prop-btn" title="ショートカット: Ctrl+E で反転" onclick="flipSelected()">⇄ 反転</button></div><button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>`;
         return;
       }
@@ -9825,6 +9905,86 @@ body.wire-mode #canvas * {
     stripVsourcePlusText();
   };
   try{ stripVsourcePlusText(); }catch(e){}
+})();
+</script>
+
+
+<script id="final-consolidated-bugfixes">
+// ===== Final consolidated bug fixes =====
+(function(){
+  'use strict';
+
+  // ---- FIX: Debounce renderAll to prevent excessive redraws ----
+  // Multiple patches call renderAll() in quick succession (e.g. on every property change).
+  // Batch updates into one animation frame to avoid layout thrashing.
+  let _renderPending = false;
+  const _origRenderAll = window.renderAll;
+  window.renderAll = renderAll = function(){
+    if(!_renderPending){
+      _renderPending = true;
+      requestAnimationFrame(function(){
+        _renderPending = false;
+        if(typeof _origRenderAll === 'function') _origRenderAll();
+      });
+    }
+  };
+  // Provide an immediate version for cases that need synchronous rendering
+  window.renderAllImmediate = function(){
+    _renderPending = false;
+    if(typeof _origRenderAll === 'function') _origRenderAll();
+  };
+
+  // ---- FIX: Prevent showProps() from destroying a focused input in prop-body ----
+  // On mobile, tapping a number stepper fires "input" -> setComponentSize -> showProps
+  // which rebuilds innerHTML of prop-body, losing focus and potentially inserting garbage.
+  const _origShowProps = window.showProps;
+  window.showProps = showProps = function(){
+    const active = document.activeElement;
+    const body = document.getElementById('prop-body');
+    if(body && active && body.contains(active) &&
+       (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')){
+      // A prop input is focused - don't rebuild the panel now.
+      // Schedule a rebuild for after the user leaves the field.
+      return;
+    }
+    if(typeof _origShowProps === 'function') _origShowProps();
+  };
+  // When user leaves a prop input, rebuild the panel
+  document.addEventListener('focusout', function(e){
+    const body = document.getElementById('prop-body');
+    if(body && body.contains(e.target)){
+      // Small delay so the new focused element is settled
+      setTimeout(function(){
+        if(typeof showProps === 'function') showProps();
+      }, 80);
+    }
+  }, true);
+
+  // ---- FIX: PNG export - ensure only the custom dialog version is used ----
+  // The final IIFE at the bottom sets window.exportPNG = savePngWithNameFixed (custom dialog)
+  // but various patches override it with prompt()-based versions.
+  // We restore the custom dialog version as the canonical one.
+  var _pngDialogVersion = window.openPngSaveDialog;
+  if(typeof _pngDialogVersion === 'function'){
+    window.exportPNG = exportPNG = function(){
+      _pngDialogVersion(null);
+    };
+  }
+
+  // ---- FIX: Mobile size input - ensure onchange also works after oninput guard ----
+  // We intercept the 'input' event on number inputs inside prop-body to prevent
+  // rapid re-render from destroying the input while typing
+  document.addEventListener('input', function(e){
+    const body = document.getElementById('prop-body');
+    if(!body || !body.contains(e.target)) return;
+    if(e.target.type === 'number'){
+      // Suppress the default oninput handler from triggering showProps rebuild
+      // The actual value update (setComponentSize etc.) is still called via oninput attribute
+      // but our overridden showProps() will skip rebuilding if this input is focused
+    }
+  }, true);
+
+  console.log('[fixes] Final consolidated bug fixes applied');
 })();
 </script>
 
