@@ -10578,6 +10578,87 @@ renderAll();showProps();
 
 })();
 </script>
+
+
+<script id="shape-dash-style-final-fix">
+// Fix: 図形の点線/破線を通常表示・SVG/PNG出力の両方に確実に反映する。
+// 既存の線種UIはそのまま使い、rect / circle / triangle / star / line / arrow / double-arrow / jump を対象にする。
+(function(){
+  function dashArrayForShape(sh){
+    var v = (sh && sh.strokeDash) || 'solid';
+    if(v === 'dashed') return '8 4';
+    if(v === 'dotted') return '2 4';
+    return '';
+  }
+
+  function isVisibleStrokeElement(el){
+    if(!el || !el.getAttribute) return false;
+    if(el.classList && (el.classList.contains('shape-hit-area') || el.classList.contains('line-end-handle') || el.classList.contains('shape-resize-handle'))) return false;
+    var stroke = (el.getAttribute('stroke') || '').trim().toLowerCase();
+    if(!stroke || stroke === 'none' || stroke === 'transparent') return false;
+    // 選択枠・操作ハンドルの青い線は図形本体ではないため除外。
+    if(stroke === '#3b82f6' || stroke === 'rgb(59, 130, 246)') return false;
+    return true;
+  }
+
+  function applyDashToShapeGroup(g, sh){
+    if(!g || !sh) return;
+    var da = dashArrayForShape(sh);
+    g.querySelectorAll('line,path,polyline,polygon,ellipse,circle,rect').forEach(function(el){
+      if(!isVisibleStrokeElement(el)) return;
+      if(da){
+        el.setAttribute('stroke-dasharray', da);
+        if(sh.strokeDash === 'dotted') el.setAttribute('stroke-linecap', 'round');
+      }else{
+        el.removeAttribute('stroke-dasharray');
+      }
+    });
+  }
+
+  function addDashToSvgMarkup(markup, sh){
+    var da = dashArrayForShape(sh);
+    if(!da || !markup) return markup;
+    return String(markup).replace(/<(line|path|polyline|polygon|ellipse|circle|rect)\b([^>]*)>/gi, function(full, tag, attrs){
+      if(/\bstroke-dasharray\s*=/.test(attrs)) return full;
+      var strokeMatch = attrs.match(/\bstroke\s*=\s*(['"])(.*?)\1/i);
+      if(!strokeMatch) return full;
+      var stroke = String(strokeMatch[2]).trim().toLowerCase();
+      if(!stroke || stroke === 'none' || stroke === 'transparent' || stroke === '#3b82f6') return full;
+      var extra = ' stroke-dasharray="' + da + '"';
+      if(sh.strokeDash === 'dotted' && !/\bstroke-linecap\s*=/.test(attrs)) extra += ' stroke-linecap="round"';
+      return '<' + tag + attrs + extra + '>';
+    });
+  }
+
+  var previousShapeSVG = window.shapeSVG || (typeof shapeSVG === 'function' ? shapeSVG : null);
+  if(previousShapeSVG){
+    window.shapeSVG = shapeSVG = function(sh){
+      var markup = previousShapeSVG(sh);
+      return addDashToSvgMarkup(markup, sh);
+    };
+  }
+
+  var previousRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(previousRenderAll){
+    window.renderAll = renderAll = function(){
+      previousRenderAll();
+      if(typeof shapes === 'undefined') return;
+      document.querySelectorAll('#comps-layer g[data-sid]').forEach(function(g){
+        var sid = g.getAttribute('data-sid');
+        var sh = shapes.find(function(x){ return x.id === sid; });
+        applyDashToShapeGroup(g, sh);
+      });
+    };
+  }
+
+  // 既存データに線種フィールドが無い場合でもUIと描画が安定するように初期化する。
+  if(typeof shapes !== 'undefined'){
+    shapes.forEach(function(sh){ if(sh && !sh.strokeDash) sh.strokeDash = 'solid'; });
+  }
+  if(typeof renderAll === 'function') renderAll();
+})();
+</script>
+
 </body>
 </html>
 <script id="junction-single-place-vsource-noplus-fix">
