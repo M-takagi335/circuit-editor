@@ -90,9 +90,9 @@ body.wire-mode #canvas-wrap, body.wire-mode #canvas{cursor:crosshair!important}
 #canvas-wrap.panning{cursor:grabbing!important}
 #canvas-wrap.pan-ready{cursor:grab!important}
 .color-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.color-swatch{width:22px;height:22px;border:1px solid #777;border-radius:3px;cursor:pointer;padding:0;-webkit-appearance:none;appearance:none;display:inline-block;vertical-align:middle}
-@media(max-width:760px){.color-swatch{width:30px;height:30px;border-radius:5px}}
+.color-swatch{width:18px;height:18px;border:1px solid #777;border-radius:3px;cursor:pointer;background:var(--c);padding:0;-webkit-appearance:none;appearance:none}
 .color-swatch.active{outline:2px solid #3b82f6;outline-offset:1px}
+@media(max-width:760px){.color-swatch{width:28px!important;height:28px!important}}
 .toolbar-input{height:24px;border:1px solid #555;background:#2a2f36;color:#eee;border-radius:4px;font-size:11px;padding:2px 4px}
 .text-font-jp{font-family:'Yu Gothic','YuGothic','游ゴシック体','Meiryo',sans-serif}
 .text-font-math{font-family:'Cambria Math','Cambria','Times New Roman',serif}
@@ -247,10 +247,10 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
   <button class="tb-btn" onclick="openMathEditor()">∑ 文字/数式</button>
   <div class="tb-sep"></div>
   <span style="color:#aaa;font-size:11px">回路色</span>
-  <button class="color-swatch active" style="--c:#6b7280" onclick="setDrawColor('#6b7280',this)" title="灰色"></button>
-  <button class="color-swatch" style="--c:#1a1a1a" onclick="setDrawColor('#1a1a1a',this)" title="黒"></button>
-  <button class="color-swatch" style="--c:#dc2626" onclick="setDrawColor('#dc2626',this)" title="赤"></button>
-  <button class="color-swatch" style="--c:#2563eb" onclick="setDrawColor('#2563eb',this)" title="青"></button>
+  <button class="color-swatch active" style="--c:#6b7280;background-color:#6b7280" onclick="setDrawColor('#6b7280',this)" title="灰色"></button>
+  <button class="color-swatch" style="--c:#1a1a1a;background-color:#1a1a1a" onclick="setDrawColor('#1a1a1a',this)" title="黒"></button>
+  <button class="color-swatch" style="--c:#dc2626;background-color:#dc2626" onclick="setDrawColor('#dc2626',this)" title="赤"></button>
+  <button class="color-swatch" style="--c:#2563eb;background-color:#2563eb" onclick="setDrawColor('#2563eb',this)" title="青"></button>
   <input class="toolbar-input" id="custom-color" type="color" value="#6b7280" onchange="setDrawColor(this.value)" title="自由色">
   <div class="tb-sep"></div>
   <button class="tb-btn" onclick="saveCircuitFile()">💾 保存</button>
@@ -3422,7 +3422,7 @@ renderAll();
     colors.forEach(([c,t],i)=>{
       const b = document.createElement('button');
       b.className = 'color-swatch' + (i===0 ? ' active' : '');
-      b.style.setProperty('--c', c);
+      b.style.setProperty('--c', c); b.style.backgroundColor = c;
       b.title = t;
       b.onclick = function(){ setDrawColor(c, b); };
       toolbar.insertBefore(b, custom);
@@ -11181,32 +11181,3 @@ renderAll();showProps();
 })();
 </script>
 
-<script>
-/* iOS Safari は button 要素で background:var(--c) が効かないため、
-   --c が設定・変更されるたびに background-color を直接同期するパッチ */
-(function(){
-  function syncSwatchColors(){
-    document.querySelectorAll('.color-swatch').forEach(function(el){
-      var match = el.getAttribute('style') && el.getAttribute('style').match(/--c:\s*([^;]+)/);
-      if(match) el.style.backgroundColor = match[1].trim();
-    });
-  }
-  document.addEventListener('DOMContentLoaded', syncSwatchColors);
-  // MutationObserverでstyle属性変化・要素追加時も同期
-  document.addEventListener('DOMContentLoaded', function(){
-    var observer = new MutationObserver(function(mutations){
-      var needSync = false;
-      mutations.forEach(function(m){
-        if(m.type==='attributes' && m.attributeName==='style' &&
-           m.target.classList && m.target.classList.contains('color-swatch')) needSync = true;
-        m.addedNodes.forEach(function(n){
-          if(n.nodeType===1) needSync = true;
-        });
-      });
-      if(needSync) syncSwatchColors();
-    });
-    observer.observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:['style']});
-    syncSwatchColors();
-  });
-})();
-</script>
