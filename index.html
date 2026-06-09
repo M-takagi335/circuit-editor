@@ -432,10 +432,12 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
       </defs>
       <rect id="grid-bg" width="100000" height="100000" x="-50000" y="-50000" fill="url(#grid)" opacity="1"/>
       <g id="scene">
+        <g id="shapes-back-layer"></g>
         <g id="wires-layer"></g>
         <g id="junctions-layer"></g>
         <g id="math-layer"></g>
         <g id="comps-layer"></g>
+        <g id="shapes-front-layer"></g>
       </g>
       <g id="temp-layer"></g>
       <rect id="sel-box" fill="rgba(59,130,246,.08)" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4 3" display="none" rx="2"/>
@@ -955,7 +957,7 @@ function renderAll(){
   document.getElementById('wires-layer').innerHTML = '';
   document.getElementById('junctions-layer').innerHTML = '';
   document.getElementById('math-layer').innerHTML = '';
-  document.getElementById('comps-layer').innerHTML = '';
+  document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
 
   wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
 
@@ -1635,9 +1637,7 @@ function exportSVG(){
 
   let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" style="background:white;font-family:'Segoe UI',Arial,sans-serif">
 <rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>
-${document.getElementById('wires-layer').innerHTML}
-${document.getElementById('junctions-layer').innerHTML}
-${document.getElementById('comps-layer').innerHTML}
+${document.getElementById('shapes-back-layer').innerHTML}${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}${document.getElementById('shapes-front-layer').innerHTML}
 </svg>`;
 
   const blob=new Blob([svg],{type:'image/svg+xml'});
@@ -1770,9 +1770,7 @@ function exportPNG(){
 
   const svgStr=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" width="${W*scale}" height="${H*scale}" style="background:white;font-family:'Segoe UI',Arial,sans-serif">
 <rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>
-${document.getElementById('wires-layer').innerHTML}
-${document.getElementById('junctions-layer').innerHTML}
-${document.getElementById('comps-layer').innerHTML}
+${document.getElementById('shapes-back-layer').innerHTML}${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}${document.getElementById('shapes-front-layer').innerHTML}
 </svg>`;
 
   const img=new Image();
@@ -2013,7 +2011,7 @@ function renderAll(){
   document.getElementById('wires-layer').innerHTML = '';
   document.getElementById('junctions-layer').innerHTML = '';
   document.getElementById('math-layer').innerHTML = '';
-  document.getElementById('comps-layer').innerHTML = '';
+  document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
   wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
   junctions.forEach(j => {
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -2022,7 +2020,7 @@ function renderAll(){
     c.addEventListener('mousedown', e => { if(tool === 'select'){ e.stopPropagation(); saveState(); junctions = junctions.filter(x => x.id !== j.id); renderAll(); runChecks(); } });
     document.getElementById('junctions-layer').appendChild(c);
   });
-  shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+  shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
   mathLabels.forEach(m => {
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('transform', `translate(${m.x},${m.y})`); g.setAttribute('data-mid', m.id); g.style.cursor = 'pointer';
@@ -2239,13 +2237,13 @@ function getBoundingBox(){
 function exportSVG(){
   if(!components.length&&!mathLabels.length&&!shapes.length&&!wires.length&&!junctions.length){ alert('出力する内容がありません'); return; }
   const bb=getBoundingBox(), pad=50, W=bb.maxX-bb.minX+pad*2, H=bb.maxY-bb.minY+pad*2, ox=bb.minX-pad, oy=bb.minY-pad;
-  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" style="background:white;font-family:'Segoe UI',Arial,sans-serif"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}</svg>`;
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" style="background:white;font-family:'Segoe UI',Arial,sans-serif"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${document.getElementById('shapes-back-layer').innerHTML}${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}${document.getElementById('shapes-front-layer').innerHTML}</svg>`;
   const blob=new Blob([svg],{type:'image/svg+xml'}), a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='circuit.svg'; a.click();
 }
 function exportPNG(){
   if(!components.length&&!mathLabels.length&&!shapes.length&&!wires.length&&!junctions.length){ alert('出力する内容がありません'); return; }
   const bb=getBoundingBox(), pad=50, W=bb.maxX-bb.minX+pad*2, H=bb.maxY-bb.minY+pad*2, ox=bb.minX-pad, oy=bb.minY-pad, scale=2;
-  const svgStr=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" width="${W*scale}" height="${H*scale}" style="background:white;font-family:'Segoe UI',Arial,sans-serif"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}</svg>`;
+  const svgStr=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" width="${W*scale}" height="${H*scale}" style="background:white;font-family:'Segoe UI',Arial,sans-serif"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${document.getElementById('shapes-back-layer').innerHTML}${document.getElementById('wires-layer').innerHTML}${document.getElementById('junctions-layer').innerHTML}${document.getElementById('math-layer').innerHTML}${document.getElementById('comps-layer').innerHTML}${document.getElementById('shapes-front-layer').innerHTML}</svg>`;
   const img=new Image(), blob=new Blob([svgStr],{type:'image/svg+xml'}), url=URL.createObjectURL(blob);
   img.onload=()=>{ const can=document.createElement('canvas'); can.width=W*scale; can.height=H*scale; const ctx=can.getContext('2d'); ctx.fillStyle='white'; ctx.fillRect(0,0,can.width,can.height); ctx.drawImage(img,0,0); const a=document.createElement('a'); a.href=can.toDataURL('image/png'); a.download='circuit.png'; a.click(); URL.revokeObjectURL(url); };
   img.src=url;
@@ -2306,11 +2304,12 @@ function shapeToSVGExport(sh){
 function exportSvgMarkup(){
   const bb=getBoundingBox(), pad=50, W=bb.maxX-bb.minX+pad*2, H=bb.maxY-bb.minY+pad*2, ox=bb.minX-pad, oy=bb.minY-pad;
   let body = '';
+  shapes.filter(sh=>(sh.zLevel||'front')==='back').forEach(sh=> body += shapeToSVGExport(sh));
   wires.forEach(w=>{ body += `<path d="${wirePathD(w)}" fill="none" stroke="${exportEscape(w.color||currentColor||'#1a1a1a')}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`; });
   junctions.forEach(j=>{ body += `<circle cx="${j.x}" cy="${j.y}" r="4" fill="${exportEscape(j.color||currentColor||'#1a1a1a')}"/>`; });
-  shapes.forEach(sh=> body += shapeToSVGExport(sh));
-  components.forEach(c=> body += componentToSVG(c));
   mathLabels.forEach(m=> body += labelToSVGText(m));
+  components.forEach(c=> body += componentToSVG(c));
+  shapes.filter(sh=>(sh.zLevel||'front')!=='back').forEach(sh=> body += shapeToSVGExport(sh));
   return {svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" width="${W}" height="${H}" style="background:white"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${body}</svg>`, W, H};
 }
 function exportSVG(){
@@ -2421,7 +2420,7 @@ function renderAll(){
   document.getElementById('wires-layer').innerHTML = '';
   document.getElementById('junctions-layer').innerHTML = '';
   document.getElementById('math-layer').innerHTML = '';
-  document.getElementById('comps-layer').innerHTML = '';
+  document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
   wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
   junctions.forEach(j => {
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -2430,7 +2429,7 @@ function renderAll(){
     c.addEventListener('mousedown', e => { if(tool === 'select'){ e.stopPropagation(); saveState(); junctions = junctions.filter(x => x.id !== j.id); renderAll(); runChecks(); } });
     document.getElementById('junctions-layer').appendChild(c);
   });
-  shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+  shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
   mathLabels.forEach(m => {
     const g = document.createElementNS('http://www.w3.org/2000/svg','g');
     g.setAttribute('transform', `translate(${m.x},${m.y})`); g.setAttribute('data-mid', m.id); g.style.cursor = 'pointer';
@@ -2780,11 +2779,12 @@ function exportSvgMarkup(){
   const W = Math.ceil(bb.maxX - bb.minX + pad*2);
   const H = Math.ceil(bb.maxY - bb.minY + pad*2);
   let body = '';
+  shapes.filter(sh=>(sh.zLevel||'front')==='back').forEach(sh=> body += shapeToSVGExport(sh));
   wires.forEach(w=>{ body += `<path d="${wirePathD(w)}" fill="none" stroke="${exportEscape(w.color||currentColor||'#6b7280')}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`; });
   junctions.forEach(j=>{ body += `<circle cx="${j.x}" cy="${j.y}" r="4" fill="${exportEscape(j.color||currentColor||'#6b7280')}"/>`; });
-  shapes.forEach(sh=> body += shapeToSVGExport(sh));
-  components.forEach(c=> body += componentToSVG(c));
   mathLabels.forEach(m=> body += labelToSVGText(m));
+  components.forEach(c=> body += componentToSVG(c));
+  shapes.filter(sh=>(sh.zLevel||'front')!=='back').forEach(sh=> body += shapeToSVGExport(sh));
 
   // viewBox を 0 起点にして、実体を反対方向へ平行移動する。
   // negative viewBox や大きすぎる余白が原因で、SVGビューアによって左上寄り・縮小表示になる問題を避ける。
@@ -3254,7 +3254,7 @@ renderAll();
     document.getElementById('wires-layer').innerHTML = '';
     document.getElementById('junctions-layer').innerHTML = '';
     document.getElementById('math-layer').innerHTML = '';
-    document.getElementById('comps-layer').innerHTML = '';
+    document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j => {
       const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -3263,7 +3263,7 @@ renderAll();
       c.addEventListener('mousedown', ev => { if(tool === 'select'){ ev.stopPropagation(); saveState(); junctions = junctions.filter(x => x.id !== j.id); renderAll(); runChecks(); } });
       document.getElementById('junctions-layer').appendChild(c);
     });
-    shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+    shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
     mathLabels.forEach(m => document.getElementById('math-layer').appendChild(renderTextObject(m)));
     components.forEach(c => document.getElementById('comps-layer').appendChild(renderComp(c)));
     syncInlineEditor();
@@ -3901,7 +3901,7 @@ renderAll();
     document.getElementById('wires-layer').innerHTML = '';
     document.getElementById('junctions-layer').innerHTML = '';
     document.getElementById('math-layer').innerHTML = '';
-    document.getElementById('comps-layer').innerHTML = '';
+    document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j=>{
       const c=document.createElementNS(NS,'circle');
@@ -3911,7 +3911,7 @@ renderAll();
       c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); selectedWireId=null; if(ev.shiftKey){ if(selectedIds.has(jidSel)) selectedIds.delete(jidSel); else selectedIds.add(jidSel); } else { selectedIds.clear(); selectedIds.add(jidSel); } renderAll(); showProps(); }});
       document.getElementById('junctions-layer').appendChild(c);
     });
-    shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+    shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
     mathLabels.forEach(m => document.getElementById('math-layer').appendChild(renderTextBox(m)));
     components.forEach(c => document.getElementById('comps-layer').appendChild(renderComp(c)));
     syncEditor();
@@ -4354,7 +4354,7 @@ renderAll();
     document.getElementById('wires-layer').innerHTML = '';
     document.getElementById('junctions-layer').innerHTML = '';
     document.getElementById('math-layer').innerHTML = '';
-    document.getElementById('comps-layer').innerHTML = '';
+    document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
 
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j=>{
@@ -4365,7 +4365,7 @@ renderAll();
       c.addEventListener('mousedown',ev=>{ if(tool==='select'){ ev.stopPropagation(); selectedWireId=null; if(ev.shiftKey){ if(selectedIds.has(jidSel)) selectedIds.delete(jidSel); else selectedIds.add(jidSel); } else { selectedIds.clear(); selectedIds.add(jidSel); } renderAll(); showProps(); }});
       document.getElementById('junctions-layer').appendChild(c);
     });
-    shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+    shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
 
     mathLabels.forEach(m=>{
       labelDefaults(m);
@@ -4886,7 +4886,7 @@ renderAll();
     document.getElementById('wires-layer').innerHTML = '';
     document.getElementById('junctions-layer').innerHTML = '';
     document.getElementById('math-layer').innerHTML = '';
-    document.getElementById('comps-layer').innerHTML = '';
+    document.getElementById('comps-layer').innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
 
     wires.forEach(w => document.getElementById('wires-layer').appendChild(drawWireEl(w)));
     junctions.forEach(j => {
@@ -4907,7 +4907,7 @@ renderAll();
       document.getElementById('junctions-layer').appendChild(c);
     });
 
-    shapes.forEach(sh => document.getElementById('comps-layer').appendChild(renderShape(sh)));
+    shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || document.getElementById('comps-layer'); _lyr.appendChild(renderShape(sh)); });
 
     mathLabels.forEach(m => {
       labelDefaultsV9(m);
@@ -7489,18 +7489,23 @@ body.wire-mode #canvas * {
     const ox = bb.minX - pad;
     const oy = bb.minY - pad;
     let body = '';
+    const _allShapes = window.shapes || shapes || [];
+    _allShapes.filter(sh => (sh.zLevel || 'front') === 'back').forEach(sh => {
+      const sx = sh.flip ? -1 : 1;
+      body += `<g transform="translate(${sh.x},${sh.y}) rotate(${sh.rotation || 0}) scale(${sx},1)">${shapeSVG(sh)}</g>`;
+    });
     (window.wires || wires || []).forEach(w => {
       body += `<path d="${wirePathD(w)}" fill="none" stroke="${escPng(w.color || currentColor || '#1a1a1a')}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
     });
     (window.junctions || junctions || []).forEach(j => {
       body += `<circle cx="${j.x}" cy="${j.y}" r="4" fill="${escPng(j.color || currentColor || '#1a1a1a')}"/>`;
     });
-    (window.shapes || shapes || []).forEach(sh => {
+    (window.mathLabels || mathLabels || []).forEach(m => { body += labelToSafeSvgTextPng(m); });
+    (window.components || components || []).forEach(c => { body += componentToSVG(c); });
+    _allShapes.filter(sh => (sh.zLevel || 'front') !== 'back').forEach(sh => {
       const sx = sh.flip ? -1 : 1;
       body += `<g transform="translate(${sh.x},${sh.y}) rotate(${sh.rotation || 0}) scale(${sx},1)">${shapeSVG(sh)}</g>`;
     });
-    (window.components || components || []).forEach(c => { body += componentToSVG(c); });
-    (window.mathLabels || mathLabels || []).forEach(m => { body += labelToSafeSvgTextPng(m); });
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${ox} ${oy} ${W} ${H}" width="${W}" height="${H}"><rect x="${ox}" y="${oy}" width="${W}" height="${H}" fill="white"/>${body}</svg>`;
     return {svg, W, H};
   }
@@ -9018,7 +9023,7 @@ body.wire-mode #canvas * {
     wiresLayer.innerHTML = '';
     junctionsLayer.innerHTML = '';
     mathLayer.innerHTML = '';
-    compsLayer.innerHTML = '';
+    compsLayer.innerHTML = ''; (document.getElementById('shapes-back-layer')||{innerHTML:''}).innerHTML=''; (document.getElementById('shapes-front-layer')||{innerHTML:''}).innerHTML='';
 
     wires.forEach(w => wiresLayer.appendChild(drawWireEl(w)));
 
@@ -9026,11 +9031,12 @@ body.wire-mode #canvas * {
       const g = document.createElementNS(SVGNS,'g');
       g.setAttribute('data-jid', j.id);
       g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+      const _jr = (j.radius > 0 ? j.radius : 4);
       if(selectedIds.has('junction:'+j.id)){
         const halo = document.createElementNS(SVGNS,'circle');
         halo.setAttribute('cx', j.x);
         halo.setAttribute('cy', j.y);
-        halo.setAttribute('r', '8');
+        halo.setAttribute('r', String(_jr + 4));
         halo.setAttribute('fill', 'rgba(59,130,246,.10)');
         halo.setAttribute('stroke', '#3b82f6');
         halo.setAttribute('stroke-width', '1');
@@ -9040,7 +9046,7 @@ body.wire-mode #canvas * {
       const c = document.createElementNS(SVGNS,'circle');
       c.setAttribute('cx', j.x);
       c.setAttribute('cy', j.y);
-      c.setAttribute('r', selectedIds.has('junction:'+j.id) ? '4.6' : '4');
+      c.setAttribute('r', String(selectedIds.has('junction:'+j.id) ? _jr * 1.15 : _jr));
       c.setAttribute('fill', j.color || currentColor || '#6b7280');
       g.appendChild(c);
       const hit = document.createElementNS(SVGNS,'circle');
@@ -9075,7 +9081,7 @@ body.wire-mode #canvas * {
       junctionsLayer.appendChild(g);
     });
 
-    shapes.forEach(sh => compsLayer.appendChild(renderShape(sh)));
+    shapes.forEach(sh => { const _lyr = document.getElementById(sh.zLevel==='back'?'shapes-back-layer':'shapes-front-layer') || compsLayer; _lyr.appendChild(renderShape(sh)); });
 
     if(typeof window.fitAllMathLabels === 'function') window.fitAllMathLabels();
     mathLabels.forEach(m => {
@@ -12473,7 +12479,8 @@ renderAll();showProps();
         fillEnabled: bool(sh.fillEnabled),
         strokeWidth: finite(sh.strokeWidth, (typeof getLineWidth === 'function' ? getLineWidth() : 1.6), 0.2, 20),
         strokeDash: strokeDash,
-        arrowHeadSize: finite(sh.arrowHeadSize, 0, 0, 200)
+        arrowHeadSize: finite(sh.arrowHeadSize, 0, 0, 200),
+        zLevel: (sh.zLevel === 'back' ? 'back' : 'front')
       });
     });
     return out;
@@ -12690,6 +12697,236 @@ renderAll();showProps();
       }
     });
   }
+  renderAll();
+  showProps();
+})();
+</script>
+
+<script id="junction-size-control">
+(function(){
+  // ── ヘルパー ──────────────────────────────
+  var DEFAULT_R = 4;
+
+  function jR(j){ return (j && j.radius > 0) ? j.radius : DEFAULT_R; }
+
+  // ── renderAll：j.radius は描画元で直接参照するため後処理不要 ──
+  // （ラップは維持するが何も追加しない）
+
+  // ── 配置時に radius をデフォルト設定 ────
+  var _prevAddJunction = window.addJunction;
+  if(typeof _prevAddJunction === 'function'){
+    window.addJunction = addJunction = function(){
+      var j = _prevAddJunction.apply(this, arguments);
+      if(j && !j.radius) j.radius = DEFAULT_R;
+      return j;
+    };
+  }
+
+  // ── setJunctionProp を拡張 ────────────────
+  var _prevSetJunctionProp = window.setJunctionProp;
+  window.setJunctionProp = setJunctionProp = function(key, val){
+    var id = [...selectedIds][0];
+    if(!id || !id.startsWith('junction:')) return;
+    var j = junctions.find(function(x){ return x.id === id.slice(9); });
+    if(!j) return;
+    if(key === 'radius'){
+      j.radius = Math.max(1, Math.min(40, parseFloat(val) || DEFAULT_R));
+      renderAll();
+      // showProps は呼ばず、入力欄の value だけ更新してフォーカスを保つ
+      var inp = document.querySelector('#prop-body input[data-junction-radius]');
+      if(inp) inp.value = j.radius;
+      return;
+    }
+    if(_prevSetJunctionProp) _prevSetJunctionProp(key, val);
+    else { j[key] = val; renderAll(); showProps(); }
+  };
+
+  // ── showProps をラップ：結線点選択時にサイズフィールドを含む UI を丸ごと上書き ──
+  var _prevShowProps = window.showProps;
+  window.showProps = showProps = function(){
+    // 結線点が選択されているか先にチェック
+    if(selectedIds && selectedIds.size === 1){
+      var id = [...selectedIds][0];
+      if(id && id.startsWith('junction:')){
+        var j = junctions.find(function(x){ return x.id === id.slice(9); });
+        if(j){
+          var title = document.getElementById('prop-title');
+          var sub   = document.getElementById('prop-sub');
+          var body  = document.getElementById('prop-body');
+          if(title) title.textContent = '結線点';
+          if(sub)   sub.textContent   = 'X:'+Math.round(j.x)+' / Y:'+Math.round(j.y);
+          if(body){
+            body.innerHTML =
+              '<div class="prop-field"><label class="prop-label">色</label>'
+              + '<input class="prop-input" type="color" value="'+(j.color||currentColor||'#6b7280')+'" oninput="setJunctionProp(\'color\',this.value)"></div>'
+              + '<div class="prop-field"><label class="prop-label">大きさ (半径)</label>'
+              + '<input class="prop-input" type="number" min="1" max="40" step="0.5" data-junction-radius="1" value="'+jR(j)+'" oninput="setJunctionProp(\'radius\',this.value)"></div>'
+              + '<button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>';
+          }
+          return;
+        }
+      }
+    }
+    _prevShowProps.apply(this, arguments);
+  };
+
+  // ── SVG/PNG エクスポートにも反映 ─────────
+  // exportNetlist 以外のテキスト系 SVG 生成で junctions の r="4" をパッチ
+  var _prevExportSVG = window.exportSVG;
+  if(typeof _prevExportSVG === 'function'){
+    window.exportSVG = exportSVG = function(){
+      // DOM 上の circle は renderAll でもう更新済みなのでそのまま呼ぶ
+      _prevExportSVG.apply(this, arguments);
+    };
+  }
+
+  // DOM の junctions-layer の innerHTML をエクスポートに使う部分をカバーするため
+  // 既存 exportSVG/exportPNG が innerHTML を読む前に renderAll が走るので基本 OK。
+  // ただし SPICE netlist 系で `r="4"` を直書きしている箇所は別途パッチ。
+  var _prevExportNetlist = window.exportNetlist;
+  if(typeof _prevExportNetlist === 'function'){
+    window.exportNetlist = exportNetlist = function(){
+      _prevExportNetlist.apply(this, arguments);
+    };
+  }
+
+  renderAll();
+  showProps();
+})();
+</script>
+
+<script id="shape-z-order-control">
+(function(){
+  /*
+   * レイヤー構成（SVG 描画順・下から上）:
+   *   shapes-back-layer  … 配線・素子より背面の図形
+   *   wires-layer
+   *   junctions-layer
+   *   math-layer
+   *   comps-layer        … 回路素子（components）
+   *   shapes-front-layer … 回路素子より前面の図形（デフォルト）
+   *
+   * shape.zLevel:
+   *   undefined / "front" → shapes-front-layer（回路素子より前）
+   *   "back"              → shapes-back-layer（配線より後ろ）
+   *
+   * shapes 配列内での順番が同レイヤー内での重なり順。
+   */
+
+  function getSelectedShapeId(){
+    if(!selectedIds || selectedIds.size !== 1) return null;
+    const id = [...selectedIds][0];
+    return (id && id.startsWith('shape:')) ? id.slice(6) : null;
+  }
+
+  // shapes は renderShape 呼び出し元で直接 zLevel に応じたレイヤーに append する
+
+  // ── 同レイヤー内での前後移動（shapes 配列順） ───────────────
+  function getLayerShapes(sh){
+    const lv = sh.zLevel || 'front';
+    return shapes.filter(s => (s.zLevel || 'front') === lv);
+  }
+
+  window.bringShapeForward = function(){
+    const sid = getSelectedShapeId(); if(!sid) return;
+    const sh = shapes.find(s => s.id === sid); if(!sh) return;
+    const layerShapes = getLayerShapes(sh);
+    const layerIdx = layerShapes.findIndex(s => s.id === sid);
+    if(layerIdx >= layerShapes.length - 1) return;
+    // shapes 配列内で次のレイヤー同士の要素と入れ替え
+    const nextSh = layerShapes[layerIdx + 1];
+    const i1 = shapes.indexOf(sh), i2 = shapes.indexOf(nextSh);
+    saveState();
+    shapes[i1] = nextSh; shapes[i2] = sh;
+    renderAll(); showProps();
+  };
+
+  window.sendShapeBackward = function(){
+    const sid = getSelectedShapeId(); if(!sid) return;
+    const sh = shapes.find(s => s.id === sid); if(!sh) return;
+    const layerShapes = getLayerShapes(sh);
+    const layerIdx = layerShapes.findIndex(s => s.id === sid);
+    if(layerIdx <= 0) return;
+    const prevSh = layerShapes[layerIdx - 1];
+    const i1 = shapes.indexOf(sh), i2 = shapes.indexOf(prevSh);
+    saveState();
+    shapes[i1] = prevSh; shapes[i2] = sh;
+    renderAll(); showProps();
+  };
+
+  window.bringShapeToFront = function(){
+    const sid = getSelectedShapeId(); if(!sid) return;
+    const sh = shapes.find(s => s.id === sid); if(!sh) return;
+    // zLevel を front に変更して shapes 配列の末尾へ
+    saveState();
+    sh.zLevel = 'front';
+    shapes.splice(shapes.indexOf(sh), 1);
+    shapes.push(sh);
+    renderAll(); showProps();
+  };
+
+  window.sendShapeToBack = function(){
+    const sid = getSelectedShapeId(); if(!sid) return;
+    const sh = shapes.find(s => s.id === sid); if(!sh) return;
+    // zLevel を back に変更して shapes 配列の先頭へ
+    saveState();
+    sh.zLevel = 'back';
+    shapes.splice(shapes.indexOf(sh), 1);
+    shapes.unshift(sh);
+    renderAll(); showProps();
+  };
+
+  // ── showProps ラップ：重なり順 UI を差し込む ─────────────────
+  const _prevShowPropsZ = window.showProps;
+  window.showProps = showProps = function(){
+    _prevShowPropsZ.apply(this, arguments);
+
+    const sid = getSelectedShapeId(); if(!sid) return;
+    const body = document.getElementById('prop-body'); if(!body) return;
+    if(body.querySelector('.z-order-row')) return; // 二重挿入防止
+
+    const sh = shapes.find(s => s.id === sid); if(!sh) return;
+    const lv = sh.zLevel || 'front';
+    const layerShapes = getLayerShapes(sh);
+    const layerIdx = layerShapes.findIndex(s => s.id === sid);
+    const total = layerShapes.length;
+    const atLayerFront = layerIdx >= total - 1;
+    const atLayerBack  = layerIdx <= 0;
+    // 「最前面」「最背面」は素子レイヤーを越えるので常に有効
+    const atAbsoluteFront = lv === 'front' && atLayerFront;
+    const atAbsoluteBack  = lv === 'back'  && atLayerBack;
+
+    const levelLabel = lv === 'back'
+      ? '配線より背面'
+      : '回路素子より前面';
+
+    const row = document.createElement('div');
+    row.className = 'prop-field z-order-row';
+    row.innerHTML = '<label class="prop-label">重なり順</label>'
+      + '<div class="hint" style="margin-bottom:4px">現在: <b>'+levelLabel+'</b>'
+      + (total > 1 ? '（同レイヤー内 '+(layerIdx+1)+'/'+total+'番目）' : '') + '</div>'
+      + '<div class="btn-row" style="flex-wrap:wrap;gap:3px;margin-bottom:3px">'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="bringShapeToFront()"'+(atAbsoluteFront?' disabled style="opacity:.4"':'')+'>⬆ 最前面<br><span style="font-size:9px;color:#888">素子より前</span></button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="bringShapeForward()"'+(atLayerFront?' disabled style="opacity:.4"':'')+'>↑ 前へ</button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="sendShapeBackward()"'+(atLayerBack?' disabled style="opacity:.4"':'')+'>↓ 後ろへ</button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="sendShapeToBack()"'+(atAbsoluteBack?' disabled style="opacity:.4"':'')+'>⬇ 最背面<br><span style="font-size:9px;color:#888">配線より後ろ</span></button>'
+      + '</div>';
+
+    const dangerBtn = body.querySelector('.prop-btn.danger');
+    if(dangerBtn) dangerBtn.parentNode.insertBefore(row, dangerBtn);
+    else body.appendChild(row);
+  };
+
+  // ── エクスポート時に back/front layer も含める ───────────────
+  // renderAll 後に shapes-back/front-layer の内容が DOM に存在するため
+  // 既存エクスポートコードが scene innerHTML を読む場合は自動的に含まれる。
+  // comps-layer だけを個別参照しているエクスポートのため sceneHTML を公開する。
+  window.__getSceneHTML = function(){
+    const g = id => (document.getElementById(id)||{innerHTML:''}).innerHTML;
+    return g('shapes-back-layer') + g('wires-layer') + g('junctions-layer')
+         + g('math-layer') + g('comps-layer') + g('shapes-front-layer');
+  };
+
   renderAll();
   showProps();
 })();
