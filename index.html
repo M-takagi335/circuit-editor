@@ -5733,7 +5733,7 @@ renderAll();
         <div class="prop-field"><label class="prop-label">高さ</label><input class="prop-input" type="number" min="5" value="${Math.round(b.h)}" oninput="setShapeProp('h',parseInt(this.value)||10)"></div>
         <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${sh.fillEnabled?'checked':''} onchange="setShapeStyle('fillEnabled',this.checked)"> 塗りつぶし</label>
         <div class="shape-style-row">
-          <div class="prop-field"><label class="prop-label">塗り色</label><input class="prop-input" type="color" value="${sh.fillColor}" oninput="setShapeStyle('fillColor',this.value)" ${sh.fillEnabled?'':'disabled'}></div>
+          ${sh.fillEnabled?`<div class="prop-field"><label class="prop-label">塗り色</label><input class="prop-input" type="color" value="${sh.fillColor}" oninput="setShapeStyle('fillColor',this.value)"></div>`:''}
           <div class="prop-field"><label class="prop-label">枠線色</label><input class="prop-input" type="color" value="${sh.strokeColor}" oninput="setShapeStyle('strokeColor',this.value)"></div>
         </div>
         <div class="prop-field"><label class="prop-label">枠線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="${sh.strokeWidth}" oninput="setShapeStyle('strokeWidth',this.value)"></div>
@@ -5966,7 +5966,7 @@ renderAll();
       <div class="prop-field"><label class="prop-label">幅</label><input class="prop-input" type="number" min="5" value="${Math.round(b.w)}" oninput="setShapeProp('w',parseInt(this.value)||10)"></div>
       <div class="prop-field"><label class="prop-label">高さ</label><input class="prop-input" type="number" min="5" value="${Math.round(b.h)}" oninput="setShapeProp('h',parseInt(this.value)||10)"></div>
       <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" ${sh.fillEnabled?'checked':''} onchange="setShapeStyle('fillEnabled',this.checked)"> 塗りつぶし</label>
-      ${colorDragControl('塗り色', 'fillColor', sh.fillColor)}
+      ${sh.fillEnabled ? colorDragControl('塗り色', 'fillColor', sh.fillColor) : ''}
       ${colorDragControl('枠線色', 'strokeColor', sh.strokeColor)}
       <div class="prop-field"><label class="prop-label">枠線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="${sh.strokeWidth}" oninput="setShapeStyle('strokeWidth',this.value)"></div>
       <div class="btn-row"><button class="prop-btn" onclick="rotateSelected()">↻ 90°回転</button><button class="prop-btn" onclick="flipSelected()">⇄ 反転</button></div>
@@ -10374,7 +10374,28 @@ window.__setShapeStrokeW=function(v){
 window.__setShapeFillEnabled=function(v){
   var id=[...selectedIds][0];if(!id||!id.startsWith('shape:')) return;
   var sh=shapes.find(function(x){return x.id===id.slice(6);});if(!sh) return;
-  sh.fillEnabled=!!v;sh.filled=!!v;renderAll();showProps();
+  sh.fillEnabled=!!v;sh.filled=!!v;
+  renderAll();
+  // チェックボックス操作後はフォーカスがパネル内にあるため showProps の
+  // フォーカスガードで再描画がスキップされる。塗り色行だけ即時 DOM 操作する。
+  var B=document.getElementById('prop-body');
+  if(B){
+    var existing=B.querySelector('.fill-color-row');
+    if(v){
+      if(!existing){
+        var fc=sh.fillColor||'#ffffff';
+        var row=document.createElement('div');
+        row.className='prop-field fill-color-row';
+        row.innerHTML='<label class="prop-label">塗り色</label><div class="color-row">'+mkSwatches('fillColor',fc)+'</div>';
+        // チェックボックスの label の直後に挿入
+        var cbLabel=B.querySelector('label[style*="align-items:center"]');
+        if(cbLabel&&cbLabel.nextSibling) cbLabel.parentNode.insertBefore(row,cbLabel.nextSibling);
+        else B.appendChild(row);
+      }
+    } else {
+      if(existing) existing.remove();
+    }
+  }
 };
 
 /* ===== showProps: 図形のみ担当 ===== */
@@ -10407,7 +10428,7 @@ function buildShape(sh){
       +'<div class="prop-field"><label class="prop-label">線種</label>'+mkDash(sh.strokeDash,'__setShapeDash')+'</div>'
       +'<div class="prop-field"><label class="prop-label">枠線の太さ</label><input class="prop-input" type="number" min="0.5" step="0.5" value="'+(Number(sh.strokeWidth)||1.6)+'" oninput="__setShapeStrokeW(this.value)"></div>'
       +'<label style="display:flex;align-items:center;gap:6px;margin:2px 0"><input type="checkbox" '+(sh.fillEnabled?'checked':'')+' onchange="__setShapeFillEnabled(this.checked)"> 塗りつぶし</label>'
-      +(sh.fillEnabled?'<div class="prop-field"><label class="prop-label">塗り色</label><div class="color-row">'+mkSwatches('fillColor',fc)+'</div></div>':'')
+      +(sh.fillEnabled?'<div class="prop-field fill-color-row"><label class="prop-label">塗り色</label><div class="color-row">'+mkSwatches('fillColor',fc)+'</div></div>':'')
       +'<div class="btn-row"><button class="prop-btn" onclick="rotateSelected()">&#8635; 90&deg;回転</button><button class="prop-btn" onclick="flipSelected()">&#8644; 反転</button></div>'
       +'<button class="prop-btn danger" onclick="deleteSelected()">&#128465; 削除</button>';
     return true;
@@ -12925,6 +12946,66 @@ renderAll();showProps();
     const g = id => (document.getElementById(id)||{innerHTML:''}).innerHTML;
     return g('shapes-back-layer') + g('wires-layer') + g('junctions-layer')
          + g('math-layer') + g('comps-layer') + g('shapes-front-layer');
+  };
+
+  renderAll();
+  showProps();
+})();
+</script>
+
+<script id="shape-fill-and-zorder-fix">
+(function(){
+  /*
+   * z-order UIを図形（丸・三角・矢印等）にも確実に表示:
+   * showPropsを最終ラップして挿入順序の問題を解消。
+   */
+
+  const _prevShowPropsFix = window.showProps;
+  window.showProps = showProps = function(){
+    _prevShowPropsFix.apply(this, arguments);
+
+    const body = document.getElementById('prop-body');
+    if(!body) return;
+
+    const selId = (window.selectedIds && selectedIds.size === 1) ? [...selectedIds][0] : null;
+
+    // ── z-order UIの挿入 ──────────────────────────────────
+    if(body.querySelector('.z-order-row')) return;
+    if(!selId || !selId.startsWith('shape:')) return;
+    const sh2 = (window.shapes||shapes).find(s => s.id === selId.slice(6));
+    if(!sh2 || sh2.kind === 'jump') return;
+
+    function getLayerShapesFixed(s){
+      const lv = s.zLevel || 'front';
+      return (window.shapes||shapes).filter(x => (x.zLevel||'front') === lv && x.kind !== 'jump');
+    }
+
+    const lv = sh2.zLevel || 'front';
+    const layerShapes = getLayerShapesFixed(sh2);
+    const layerIdx = layerShapes.findIndex(s => s.id === sh2.id);
+    const total = layerShapes.length;
+    const atLayerFront = layerIdx >= total - 1;
+    const atLayerBack  = layerIdx <= 0;
+    const atAbsoluteFront = lv === 'front' && atLayerFront;
+    const atAbsoluteBack  = lv === 'back'  && atLayerBack;
+    const levelLabel = lv === 'back' ? '配線より背面' : '回路素子より前面';
+
+    const row = document.createElement('div');
+    row.className = 'prop-field z-order-row';
+    row.innerHTML =
+      '<label class="prop-label">重なり順</label>'
+      + '<div class="hint" style="margin-bottom:4px">現在: <b>' + levelLabel + '</b>'
+      + (total > 1 ? '（同レイヤー内 ' + (layerIdx + 1) + '/' + total + '番目）' : '') + '</div>'
+      + '<div class="btn-row" style="flex-wrap:wrap;gap:3px;margin-bottom:3px">'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="bringShapeToFront()"' + (atAbsoluteFront ? ' disabled style="opacity:.4"' : '') + '>⬆ 最前面<br><span style="font-size:9px;color:#888">素子より前</span></button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="bringShapeForward()"' + (atLayerFront ? ' disabled style="opacity:.4"' : '') + '>↑ 前へ</button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="sendShapeBackward()"' + (atLayerBack ? ' disabled style="opacity:.4"' : '') + '>↓ 後ろへ</button>'
+      + '<button class="prop-btn" style="flex:1;min-width:70px" onclick="sendShapeToBack()"' + (atAbsoluteBack ? ' disabled style="opacity:.4"' : '') + '>⬇ 最背面<br><span style="font-size:9px;color:#888">配線より後ろ</span></button>'
+      + '</div>';
+
+    const dangerBtn = body.querySelector('.prop-btn.danger');
+    if(dangerBtn) dangerBtn.parentNode.insertBefore(row, dangerBtn);
+    else body.appendChild(row);
   };
 
   renderAll();
