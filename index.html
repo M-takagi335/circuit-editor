@@ -270,6 +270,26 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
 }
 </style>
 
+
+
+<style id="mobile-toggle-align-fix">
+/* スマホ表示で「素子」と「プロパティ」の開閉ボタンの高さを揃える */
+@media (max-width: 760px){
+  #palette-toggle,
+  #props-toggle{
+    top:auto!important;
+    bottom:12px!important;
+  }
+  body.props-closed #props-toggle{
+    bottom:12px!important;
+  }
+  body:not(.props-closed) #palette-toggle,
+  body:not(.props-closed) #props-toggle{
+    bottom:calc(min(56vh, 420px) + 8px)!important;
+  }
+}
+</style>
+
 </head>
 <body>
 
