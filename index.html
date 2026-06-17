@@ -11488,8 +11488,8 @@ renderAll();showProps();
 
   // 新規タイプを既存定義へ追加。既存の pmos/nmos/npn/pnp は変更しない。
   Object.assign(DEFS, {
-    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
-    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:76, h:70, terms:[{x:-32,y:0,id:'B'},{x:36,y:-32,id:'C'},{x:38,y:32,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:82, h:70, terms:[{x:-32,y:0,id:'B'},{x:40,y:-32,id:'E'},{x:42,y:32,id:'C'}], defVal:'', pre:'Q'}
   });
@@ -11711,8 +11711,8 @@ renderAll();showProps();
     div.innerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg><span class="pal-name">' + name + '</span>';
     after.insertAdjacentElement('afterend', div);
   }
-  addPaletteItem('pal-pmos', 'pal-pmos2', 'pmos2', 'PMOS2', '-46 -48 96 96');
-  addPaletteItem('pal-pmos2', 'pal-nmos2', 'nmos2', 'NMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-pmos', 'pal-pmos2', 'pmos2', 'NMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-pmos2', 'pal-nmos2', 'nmos2', 'PMOS2', '-46 -48 96 96');
   addPaletteItem('pal-nmos2', 'pal-npntr2', 'npntr2', 'NPNtr2', '-42 -42 90 84');
   addPaletteItem('pal-npntr2', 'pal-pnptr2', 'pnptr2', 'PNPTr2', '-42 -42 96 84');
 
@@ -11888,8 +11888,8 @@ renderAll();showProps();
   }
 
   if(typeof DEFS !== 'undefined'){
-    DEFS.nmos2 = mosDef('nmos2', 'NMOS2');
-    DEFS.pmos2 = mosDef('pmos2', 'PMOS2');
+    DEFS.nmos2 = mosDef('nmos2', 'PMOS2');
+    DEFS.pmos2 = mosDef('pmos2', 'NMOS2');
     DEFS.npntr2 = {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'};
     DEFS.pnptr2 = {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'};
   }
@@ -13849,8 +13849,8 @@ renderAll();showProps();
   }
 
   Object.assign(DEFS, {
-    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
-    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'}
   });
@@ -14105,8 +14105,8 @@ renderAll();showProps();
     ['line','5,0 -10,0'],
     ['line','20,0 20,20'],
     ['line','20,-50 20,-20'],
-    ['poly','30,10 35,-10 40,10'],
-    ['line','40,-10 30,-10'],
+    ['poly','30,-10 35,10 40,-10'],
+    ['line','40,10 30,10'],
     ['line','20,20 20,50'],
     ['line','35,-25 35,25'],
     ['line','35,-25 20,-25'],
@@ -14169,8 +14169,8 @@ renderAll();showProps();
   }
 
   Object.assign(DEFS, {
-    nmos2:  {name:'NMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:10,id:'B'}], defVal:'', pre:'M'},
-    pmos2:  {name:'PMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:-10,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'PMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:10,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'NMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:-10,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'C'},{x:30,y:30,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'E'},{x:30,y:30,id:'C'}], defVal:'', pre:'Q'}
   });
