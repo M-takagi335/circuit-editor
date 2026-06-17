@@ -8838,6 +8838,16 @@ body.wire-mode #canvas * {
   };
 
   const oldComponentToSVG = window.componentToSVG;
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  function applyDashToExportMarkup(markup, c){
+    var dash = dashArray(c && c.strokeDash);
+    if(!dash) return markup;
+    return String(markup).replace(/<(line|path|rect|circle|ellipse|polyline)\b([^>]*\bstroke="(?!none|transparent)[^"]+"[^>]*)>/gi, function(all, tag, attrs){
+      if(/stroke-dasharray=/i.test(attrs)) return all;
+      return '<' + tag + attrs + ' stroke-dasharray="' + dash + '" stroke-linecap="round" stroke-linejoin="round">';
+    });
+  }
+
   window.componentToSVG = componentToSVG = function(c){
     const sx = c.flip ? -1 : 1;
     const sz = compSize(c);
@@ -11373,8 +11383,708 @@ renderAll();showProps();
   };
 })();
 </script>
-</body>
-</html>
+
+
+<script id="transistor-mosfet-2-symbols-final-patch">
+// 追加素子: PMOS2 / NMOS2 / NPNtr2 / PNPTr2
+// 添付SVGの位置関係を保ちながら、既存素子と同じ線幅・サイズ・点線・リサイズ処理に統合する。
+(function(){
+  if(window.__transistorMosfet2SymbolsFinalPatch) return;
+  window.__transistorMosfet2SymbolsFinalPatch = true;
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var MIN_SIZE = 0.45;
+  var MAX_SIZE = 2.4;
+  var NEW_TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : 1, MIN_SIZE, MAX_SIZE); }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function col(c){ return (c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR; }
+  function dashArray(style){
+    if(style === 'dotted') return '1 6';
+    if(style === 'dashed') return '8 5';
+    return '';
+  }
+  function styleAttrs(c){
+    var dash = dashArray(c && c.strokeDash);
+    return dash ? ' stroke-dasharray="' + dash + '" stroke-linecap="round" stroke-linejoin="round"' : ' stroke-linecap="round" stroke-linejoin="round"';
+  }
+  function st(c){ return 'stroke="' + esc(col(c)) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c); }
+  function fill(c){ return esc(col(c)); }
+  function symbolSVG(c){
+    var type = c && c.type;
+    var s = st(c), f = fill(c);
+    if(type === 'npntr2'){
+      return ''
+        + '<line x1="-32" y1="0" x2="-9" y2="0" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="-28" x2="-9" y2="28" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="-17" x2="27" y2="-32" ' + s + ' fill="none"/>'
+        + '<line x1="27" y1="-32" x2="36" y2="-32" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="8" x2="28" y2="32" ' + s + ' fill="none"/>'
+        + '<line x1="28" y1="32" x2="38" y2="32" ' + s + ' fill="none"/>'
+        + '<polygon points="19,23 36,36 13,32" fill="' + f + '"/>';
+    }
+    if(type === 'pnptr2'){
+      return ''
+        + '<line x1="-32" y1="0" x2="-9" y2="0" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="-28" x2="-9" y2="28" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="-17" x2="32" y2="-32" ' + s + ' fill="none"/>'
+        + '<line x1="32" y1="-32" x2="40" y2="-32" ' + s + ' fill="none"/>'
+        + '<line x1="-9" y1="8" x2="34" y2="32" ' + s + ' fill="none"/>'
+        + '<line x1="34" y1="32" x2="42" y2="32" ' + s + ' fill="none"/>'
+        + '<polygon points="1,24 -12,3 14,9" fill="' + f + '"/>';
+    }
+    if(type === 'nmos2'){
+      return ''
+        + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
+        + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-33" x2="-10" y2="-16" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-8" x2="-10" y2="8" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="16" x2="-10" y2="33" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-25" x2="13" y2="-25" ' + s + ' fill="none"/>'
+        + '<line x1="13" y1="-25" x2="13" y2="-42" ' + s + ' fill="none"/>'
+        + '<line x1="13" y1="-42" x2="30" y2="-42" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="25" x2="16" y2="25" ' + s + ' fill="none"/>'
+        + '<line x1="16" y1="25" x2="16" y2="42" ' + s + ' fill="none"/>'
+        + '<line x1="16" y1="42" x2="33" y2="42" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="0" x2="14" y2="0" ' + s + ' fill="none"/>'
+        + '<polygon points="3,-7 23,0 3,7" fill="' + f + '"/>'
+        + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
+        + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
+    }
+    if(type === 'pmos2'){
+      return ''
+        + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
+        + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-33" x2="-10" y2="-16" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-8" x2="-10" y2="8" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="16" x2="-10" y2="33" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="-25" x2="13" y2="-25" ' + s + ' fill="none"/>'
+        + '<line x1="13" y1="-25" x2="13" y2="-42" ' + s + ' fill="none"/>'
+        + '<line x1="13" y1="-42" x2="30" y2="-42" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="25" x2="16" y2="25" ' + s + ' fill="none"/>'
+        + '<line x1="16" y1="25" x2="16" y2="42" ' + s + ' fill="none"/>'
+        + '<line x1="16" y1="42" x2="33" y2="42" ' + s + ' fill="none"/>'
+        + '<line x1="-10" y1="0" x2="14" y2="0" ' + s + ' fill="none"/>'
+        + '<polygon points="22,-7 2,0 22,7" fill="' + f + '"/>'
+        + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
+        + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
+    }
+    return null;
+  }
+
+  // 新規タイプを既存定義へ追加。既存の pmos/nmos/npn/pnp は変更しない。
+  Object.assign(DEFS, {
+    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    npntr2: {name:'NPNtr2', w:76, h:70, terms:[{x:-32,y:0,id:'B'},{x:36,y:-32,id:'C'},{x:38,y:32,id:'E'}], defVal:'', pre:'Q'},
+    pnptr2: {name:'PNPTr2', w:82, h:70, terms:[{x:-32,y:0,id:'B'},{x:40,y:-32,id:'E'},{x:42,y:32,id:'C'}], defVal:'', pre:'Q'}
+  });
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(NEW_TYPES[type]){
+      return symbolSVG({type:type, color: color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:1, strokeDash:'solid'});
+    }
+    return prevCompSVG ? prevCompSVG(type, color) : '';
+  };
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(prevAddComp){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      var c = prevAddComp(type, x, y, opts);
+      if(c){
+        if(c.size == null) c.size = 1;
+        if(NEW_TYPES[type] && !c.strokeDash) c.strokeDash = 'solid';
+      }
+      return c;
+    };
+  }
+
+  window.getTerms = getTerms = function(c){
+    var def = DEFS[c.type];
+    if(!def || !def.terms) return [];
+    var sz = compSize(c);
+    return def.terms.map(function(t){
+      var tx = (c.flip ? -t.x : t.x) * sz;
+      var ty = t.y * sz;
+      var a = (c.rotation || 0) * Math.PI / 180;
+      var rx = tx * Math.cos(a) - ty * Math.sin(a);
+      var ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  };
+
+  function normalizeExistingSymbol(root, c){
+    var lw = lineWidth() / compSize(c);
+    var dash = dashArray(c && c.strokeDash);
+    root.querySelectorAll('line,path,rect,circle,ellipse,polygon,polyline').forEach(function(el){
+      if(el.classList && el.classList.contains('term-hit')) return;
+      var stroke = (el.getAttribute('stroke') || '').toLowerCase();
+      if(!stroke || stroke === 'none' || stroke === 'transparent' || stroke === '#3b82f6') return;
+      if((el.tagName || '').toLowerCase() === 'polygon' && (el.getAttribute('fill') || '').toLowerCase() !== 'none') return;
+      el.setAttribute('stroke-width', String(lw));
+      el.setAttribute('stroke-linejoin', 'round');
+      if(dash){ el.setAttribute('stroke-dasharray', dash); el.setAttribute('stroke-linecap', 'round'); }
+      else { el.removeAttribute('stroke-dasharray'); }
+    });
+  }
+
+  window.renderComp = renderComp = function(c){
+    if(c.size == null) c.size = 1;
+    if(!c.strokeDash) c.strokeDash = 'solid';
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var sz = compSize(c);
+    var scaleX = c.flip ? -1 : 1;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + (scaleX * sz) + ',' + sz + ')');
+    symbolG.innerHTML = NEW_TYPES[c.type] ? symbolSVG(c) : (prevCompSVG ? prevCompSVG(c.type, col(c)) : '');
+    normalizeExistingSymbol(symbolG, c);
+
+    if(selectedIds.has(c.id)){
+      var def = DEFS[c.type] || {w:60,h:60};
+      var hw = Math.max(def.w / 2, 25) + 14;
+      var hh = Math.max(def.h / 2, 15) + 14;
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (DEFS[c.type].terms || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((DEFS[c.type].h || 60) / 2 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((DEFS[c.type].h || 60) / 2 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  function selectedComponentList(){
+    return Array.from(selectedIds).filter(function(id){
+      return typeof id === 'string' && !id.startsWith('wire:') && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:');
+    }).map(function(id){ return components.find(function(c){ return c.id === id; }); }).filter(Boolean);
+  }
+
+  window.setComponentDashStyle = function(v){
+    var comps = selectedComponentList();
+    if(!comps.length) return;
+    saveState();
+    comps.forEach(function(c){ c.strokeDash = v || 'solid'; });
+    renderAll(); showProps(); runChecks();
+  };
+
+  var prevShowProps = window.showProps || (typeof showProps === 'function' ? showProps : null);
+  if(prevShowProps){
+    window.showProps = showProps = function(){
+      prevShowProps();
+      var body = document.getElementById('prop-body');
+      if(!body) return;
+      var comps = selectedComponentList();
+      if(!comps.length) return;
+      if(body.querySelector('[data-component-dash-control="1"]')) return;
+      var same = comps.every(function(c){ return (c.strokeDash || 'solid') === (comps[0].strokeDash || 'solid'); });
+      var value = same ? (comps[0].strokeDash || 'solid') : 'solid';
+      var div = document.createElement('div');
+      div.className = 'prop-field';
+      div.setAttribute('data-component-dash-control', '1');
+      div.innerHTML = '<label class="prop-label">線種</label>'
+        + '<select class="prop-input" onchange="setComponentDashStyle(this.value)">'
+        + '<option value="solid"' + (value === 'solid' ? ' selected' : '') + '>実線</option>'
+        + '<option value="dotted"' + (value === 'dotted' ? ' selected' : '') + '>点線</option>'
+        + '<option value="dashed"' + (value === 'dashed' ? ' selected' : '') + '>破線</option>'
+        + '</select>';
+      var danger = body.querySelector('.prop-btn.danger');
+      if(danger) body.insertBefore(div, danger); else body.appendChild(div);
+    };
+  }
+
+  var prevComponentToSVG2 = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  function applyDashToExportMarkup2(markup, c){
+    var dash = dashArray(c && c.strokeDash);
+    if(!dash) return markup;
+    return String(markup).replace(/<(line|path|rect|circle|ellipse|polyline)\b([^>]*\bstroke="(?!none|transparent)[^"]+"[^>]*)>/gi, function(all, tag, attrs){
+      if(/stroke-dasharray=/i.test(attrs)) return all;
+      return '<' + tag + attrs + ' stroke-dasharray="' + dash + '" stroke-linecap="round" stroke-linejoin="round">';
+    });
+  }
+
+  window.componentToSVG = componentToSVG = function(c){
+    if(c.size == null) c.size = 1;
+    if(!c.strokeDash) c.strokeDash = 'solid';
+    if(!NEW_TYPES[c.type] && prevComponentToSVG2){
+      return applyDashToExportMarkup2(prevComponentToSVG2(c), c);
+    }
+    var sz = compSize(c);
+    var sx = c.flip ? -sz : sz;
+    var body = symbolSVG(c);
+    var labels = '';
+    if(c.ref) labels += '<text x="0" y="' + (-((DEFS[c.type].h || 60) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) labels += '<text x="0" y="' + (((DEFS[c.type].h || 60) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + body + '</g>' + labels + '</g>';
+  };
+
+  function addPaletteItem(afterId, id, type, name, viewBox){
+    if(document.getElementById(id)) return;
+    var after = document.getElementById(afterId);
+    if(!after || !after.parentElement) return;
+    var div = document.createElement('div');
+    div.className = 'pal-item';
+    div.id = id;
+    div.setAttribute('onclick', "startPlace('" + type + "')");
+    div.innerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg><span class="pal-name">' + name + '</span>';
+    after.insertAdjacentElement('afterend', div);
+  }
+  addPaletteItem('pal-pmos', 'pal-pmos2', 'pmos2', 'PMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-pmos2', 'pal-nmos2', 'nmos2', 'NMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-nmos2', 'pal-npntr2', 'npntr2', 'NPNtr2', '-42 -42 90 84');
+  addPaletteItem('pal-npntr2', 'pal-pnptr2', 'pnptr2', 'PNPTr2', '-42 -42 96 84');
+
+  components.forEach(function(c){
+    if(c.size == null) c.size = 1;
+    if(NEW_TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+  });
+
+  try{ renderAll(); showProps(); runChecks(); }catch(e){ console.error('transistor/mosfet 2 patch failed', e); }
+})();
+</script>
+
+
+
+<script id="mosfet2-svg-coordinate-balance-fix">
+// MOSFET2 / Transistor2 final override:
+// - MOSFET2 は添付 NMOS/PMOS SVG の座標関係を raw 座標から中心基準へ計算して描画する。
+// - 線幅は上部バー「線幅」(window.circuitLineWidth / getCircuitLineWidth) と一括連動。
+// - Transistor2 は新規配置時の既定サイズを 1/2 にする。
+// - MOSFET2 は他の素子とのバランスを考えた既定サイズにする。
+(function(){
+  if(window.__mosfet2SvgCoordinateBalanceFix) return;
+  window.__mosfet2SvgCoordinateBalanceFix = true;
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {pmos2:true, nmos2:true};
+  var TR2_TYPES = {npntr2:true, pnptr2:true};
+  var DEFAULT_SIZE = {nmos2:0.55, pmos2:0.55, npntr2:0.5, pnptr2:0.5};
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function defaultSizeFor(type){ return DEFAULT_SIZE[type] || 1; }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : defaultSizeFor(c && c.type), MIN_SIZE, MAX_SIZE); }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function col(c){ return (c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR; }
+  function dashArray(style){
+    if(style === 'dotted') return '1 6';
+    if(style === 'dashed') return '8 5';
+    return '';
+  }
+  function styleAttrs(c){
+    var dash = dashArray(c && c.strokeDash);
+    return (dash ? ' stroke-dasharray="' + dash + '"' : '') + ' stroke-linecap="round" stroke-linejoin="round"';
+  }
+  function st(c){ return 'stroke="' + esc(col(c)) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c); }
+  function fill(c){ return esc(col(c)); }
+
+  // 添付SVGの raw 座標を、bbox中心を原点にしてエディタ用の座標へ変換する。
+  // SVG内 g transform を適用済みの座標を raw として保持し、配置関係をここで一括計算する。
+  var MOS_COORD_SCALE = 0.8;
+  var MOS_RAW = {
+    nmos2: {
+      center: [82.3797, 100.2030],
+      lines: [
+        [[50.5,65.5],[50.5,131.906]],
+        [[50.741,132.5],[2.5004,132.5001]],
+        [[62.5,82.305],[62.5001,48.5005]],
+        [[62.5,109.613],[62.5001,88.5003]],
+        [[62.5,149.305],[62.5001,115.5005]],
+        [[110.741,65.5],[62.5004,65.5001]],
+        [[120.177,132.5],[65.5004,132.5001]],
+        [[92.53,101.5],[64.5,101.5001]],
+        [[119.5,104.5],[119.5,131.959]],
+        [[110.5,1.5],[110.5,67.906]],
+        [[162.259,115.5],[134.4998,115.5001]],
+        [[119.5,132.5],[119.5,198.906]],
+        [[147.5,57.5],[148.493,148.748]],
+        [[150.298,57.5],[111.5004,57.5001]],
+        [[148.733,146.5],[119.5001,146.5001]]
+      ],
+      polys: [
+        [[90.5,92.5],[119.5,103.0],[90.5,113.5]],
+        [[157.5,86.5],[147.0,115.5],[136.5,86.5]]
+      ],
+      terms: {G:[2.5004,132.5001], D:[110.5,1.5], S:[119.5,198.906], B:[162.259,115.5]},
+      bbox: [2.5004,1.5,162.259,198.906]
+    },
+    pmos2: {
+      center: [81.0002, 99.2030],
+      lines: [
+        [[50.5,65.5],[50.5,131.906]],
+        [[50.741,131.5],[2.5004,131.5001]],
+        [[61.5,82.305],[61.5001,48.5005]],
+        [[61.5,109.613],[61.5001,88.5003]],
+        [[61.5,148.305],[61.5001,114.5005]],
+        [[109.741,65.5],[61.5004,65.5001]],
+        [[119.177,131.5],[64.5004,131.5001]],
+        [[119.53,104.5],[91.5,104.5001]],
+        [[119.5,104.5],[119.5,131.959]],
+        [[110.5,0.5],[110.5,66.906]],
+        [[159.259,81.5],[131.4998,81.5001]],
+        [[119.5,131.5],[119.5,197.906]],
+        [[148.5,57.5],[149.493,148.748]],
+        [[149.298,57.5],[110.5004,57.5001]],
+        [[148.733,145.5],[119.5001,145.5001]]
+      ],
+      polys: [
+        [[91.5,114.5],[61.5,104.0],[91.5,93.5]],
+        [[137.5,111.5],[148.5,81.5],[159.5,111.5]]
+      ],
+      terms: {G:[2.5004,131.5001], D:[110.5,0.5], S:[119.5,197.906], B:[159.259,81.5]},
+      bbox: [2.5004,0.5,159.5,197.906]
+    }
+  };
+  function mosPt(raw, p){ return [(p[0] - raw.center[0]) * MOS_COORD_SCALE, (p[1] - raw.center[1]) * MOS_COORD_SCALE]; }
+  function fmt(v){ return (Math.round(v * 1000) / 1000).toString(); }
+  function lineTag(c, p1, p2){
+    return '<line x1="' + fmt(p1[0]) + '" y1="' + fmt(p1[1]) + '" x2="' + fmt(p2[0]) + '" y2="' + fmt(p2[1]) + '" ' + st(c) + ' fill="none"/>';
+  }
+  function polyTag(c, pts){
+    return '<polygon points="' + pts.map(function(p){ return fmt(p[0]) + ',' + fmt(p[1]); }).join(' ') + '" fill="' + fill(c) + '" ' + st(c) + '/>';
+  }
+  function mosSvgFromRaw(type, c){
+    var raw = MOS_RAW[type];
+    if(!raw) return '';
+    var out = '';
+    raw.lines.forEach(function(seg){ out += lineTag(c, mosPt(raw, seg[0]), mosPt(raw, seg[1])); });
+    raw.polys.forEach(function(poly){ out += polyTag(c, poly.map(function(p){ return mosPt(raw, p); })); });
+    return out;
+  }
+  function mosTerm(type, id){
+    var raw = MOS_RAW[type];
+    var p = raw && raw.terms[id];
+    if(!raw || !p) return {x:0,y:0,id:id};
+    var q = mosPt(raw, p);
+    return {x:q[0], y:q[1], id:id};
+  }
+  function mosDef(type, name){
+    var raw = MOS_RAW[type];
+    var w = (raw.bbox[2] - raw.bbox[0]) * MOS_COORD_SCALE;
+    var h = (raw.bbox[3] - raw.bbox[1]) * MOS_COORD_SCALE;
+    return {name:name, w:w, h:h, terms:[mosTerm(type,'G'), mosTerm(type,'D'), mosTerm(type,'S'), mosTerm(type,'B')], defVal:'', pre:'M'};
+  }
+
+  function npnTr2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-32" y1="0" x2="-0.5" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-25" x2="0" y2="18.5" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-8.3" x2="27.3" y2="-33.8" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="3.9" x2="31" y2="26.4" ' + s + ' fill="none"/>'
+      + '<polygon points="23.9,11.6 34.4,28.9 15.3,22.4" fill="' + f + '"/>';
+  }
+  function pnpTr2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-32" y1="0" x2="-0.5" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-23.6" x2="0" y2="17.6" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-10.3" x2="32.7" y2="-34.7" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="3.7" x2="37.1" y2="25.2" ' + s + ' fill="none"/>'
+      + '<polygon points="11.2,16.9 -0.8,1.8 18.1,5.7" fill="' + f + '"/>';
+  }
+  function symbolSVG(c){
+    if(!c) return '';
+    if(c.type === 'nmos2' || c.type === 'pmos2') return mosSvgFromRaw(c.type, c);
+    if(c.type === 'npntr2') return npnTr2Svg(c);
+    if(c.type === 'pnptr2') return pnpTr2Svg(c);
+    return null;
+  }
+
+  if(typeof DEFS !== 'undefined'){
+    DEFS.nmos2 = mosDef('nmos2', 'NMOS2');
+    DEFS.pmos2 = mosDef('pmos2', 'PMOS2');
+    DEFS.npntr2 = {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'};
+    DEFS.pnptr2 = {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'};
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(prevAddComp){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(TYPES[type] && opts.size == null) opts.size = defaultSizeFor(type);
+      var c = prevAddComp(type, x, y, opts);
+      if(c && TYPES[type]){
+        if(c.size == null) c.size = defaultSizeFor(type);
+        if(!c.strokeDash) c.strokeDash = 'solid';
+      }
+      return c;
+    };
+  }
+
+  var prevGetTerms = window.getTerms || (typeof getTerms === 'function' ? getTerms : null);
+  window.getTerms = getTerms = function(c){
+    if(!c || !TYPES[c.type]) return prevGetTerms ? prevGetTerms(c) : [];
+    var def = DEFS[c.type];
+    if(!def || !def.terms) return [];
+    var sz = compSize(c);
+    return def.terms.map(function(t){
+      var tx = (c.flip ? -t.x : t.x) * sz;
+      var ty = t.y * sz;
+      var a = (c.rotation || 0) * Math.PI / 180;
+      var rx = tx * Math.cos(a) - ty * Math.sin(a);
+      var ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  };
+
+  function normalizeSymbol(root, c){
+    var lw = lineWidth() / compSize(c);
+    var dash = dashArray(c && c.strokeDash);
+    root.querySelectorAll('line,path,rect,circle,ellipse,polygon,polyline').forEach(function(el){
+      if(el.classList && el.classList.contains('term-hit')) return;
+      var stroke = (el.getAttribute('stroke') || '').toLowerCase();
+      if(!stroke || stroke === 'none' || stroke === 'transparent' || stroke === '#3b82f6') return;
+      el.setAttribute('stroke-width', String(lw));
+      el.setAttribute('stroke-linecap', 'round');
+      el.setAttribute('stroke-linejoin', 'round');
+      if(dash) el.setAttribute('stroke-dasharray', dash);
+      else el.removeAttribute('stroke-dasharray');
+    });
+  }
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  window.renderComp = renderComp = function(c){
+    if(!c || !TYPES[c.type]) return prevRenderComp ? prevRenderComp(c) : document.createElementNS(SVGNS, 'g');
+    if(c.size == null) c.size = defaultSizeFor(c.type);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var sz = compSize(c);
+    var scaleX = c.flip ? -1 : 1;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + (scaleX * sz) + ',' + sz + ')');
+    symbolG.innerHTML = symbolSVG(c);
+    normalizeSymbol(symbolG, c);
+
+    if(selectedIds.has(c.id)){
+      var def = DEFS[c.type] || {w:60,h:60};
+      var hw = Math.max((def.w || 60) * sz / 2, 18) + 14;
+      var hh = Math.max((def.h || 60) * sz / 2, 18) + 14;
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (DEFS[c.type].terms || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((DEFS[c.type].h || 60) * sz / 2 + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((DEFS[c.type].h || 60) * sz / 2 + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555'); vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(!c || !TYPES[c.type]) return prevComponentToSVG ? prevComponentToSVG(c) : '';
+    if(c.size == null) c.size = defaultSizeFor(c.type);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+    var sz = compSize(c);
+    var sx = c.flip ? -sz : sz;
+    var body = symbolSVG(c);
+    var labels = '';
+    if(c.ref) labels += '<text x="0" y="' + (-((DEFS[c.type].h || 60) * sz / 2 + 12)) + '" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) labels += '<text x="0" y="' + (((DEFS[c.type].h || 60) * sz / 2 + 14)) + '" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + body + '</g>' + labels + '</g>';
+  };
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(TYPES[type]){
+      var ds = defaultSizeFor(type);
+      var body = symbolSVG({type:type, color: color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:ds, strokeDash:'solid'});
+      return '<g transform="scale(' + ds + ')">' + body + '</g>';
+    }
+    return prevCompSVG ? prevCompSVG(type, color) : '';
+  };
+
+  function setPaletteIcon(id, type, viewBox){
+    var item = document.getElementById(id);
+    if(!item) return;
+    var old = item.querySelector('svg.pal-icon');
+    if(!old) return;
+    old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg>';
+  }
+  setPaletteIcon('pal-npntr2', 'npntr2', '-40 -42 84 78');
+  setPaletteIcon('pal-pnptr2', 'pnptr2', '-40 -42 88 78');
+  setPaletteIcon('pal-nmos2', 'nmos2', '-72 -86 150 178');
+  setPaletteIcon('pal-pmos2', 'pmos2', '-72 -86 150 178');
+
+  try{
+    if(typeof components !== 'undefined'){
+      components.forEach(function(c){
+        if(TYPES[c.type]){
+          if(c.size == null) c.size = defaultSizeFor(c.type);
+          if(!c.strokeDash) c.strokeDash = 'solid';
+        }
+      });
+    }
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('MOSFET2 SVG coordinate balance fix failed', e); }
+})();
+</script>
+
 <script id="junction-single-place-vsource-noplus-fix">
 // 結線点も1つ置いたら選択へ戻す。電圧源の電池記号から + 表示を外し、二本線の間隔を少し狭くする。
 (function(){
@@ -13032,3 +13742,1126 @@ renderAll();showProps();
   showProps();
 })();
 </script>
+
+
+<script id="tr2-mosfet-size-linewidth-final-fix">
+// NPNtr2 / PNPTr2 は添付SVGの形状へ合わせ直し、MOSFET2 は既定サイズを約半分にする。
+// 線幅は上部バーの「線幅」と連動し、素子サイズ変更時も見た目の太さが揃うようにする。
+(function(){
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var MIN_SIZE = 0.35;
+  var MAX_SIZE = 2.4;
+  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {pmos2:true, nmos2:true};
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : 1, MIN_SIZE, MAX_SIZE); }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function col(c){ return (c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR; }
+  function dashArray(style){
+    if(style === 'dotted') return '1 6';
+    if(style === 'dashed') return '8 5';
+    return '';
+  }
+  function styleAttrs(c){
+    var dash = dashArray(c && c.strokeDash);
+    return (dash ? ' stroke-dasharray="' + dash + '"' : '') + ' stroke-linecap="round" stroke-linejoin="round"';
+  }
+  function st(c){ return 'stroke="' + esc(col(c)) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c); }
+  function fill(c){ return esc(col(c)); }
+
+  // 添付SVGから座標を正規化した形状。基準点はベース縦線付近、端子位置はDEFSに合わせる。
+  function npnTr2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-32" y1="0" x2="-0.5" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-25" x2="0" y2="18.5" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-8.3" x2="27.3" y2="-33.8" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="3.9" x2="31" y2="26.4" ' + s + ' fill="none"/>'
+      + '<polygon points="23.9,11.6 34.4,28.9 15.3,22.4" fill="' + f + '"/>';
+  }
+  function pnpTr2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-32" y1="0" x2="-0.5" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-23.6" x2="0" y2="17.6" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-10.3" x2="32.7" y2="-34.7" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="3.7" x2="37.1" y2="25.2" ' + s + ' fill="none"/>'
+      + '<polygon points="11.2,16.9 -0.8,1.8 18.1,5.7" fill="' + f + '"/>';
+  }
+  function nmos2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-33" x2="-10" y2="-16" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-8" x2="-10" y2="8" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="16" x2="-10" y2="33" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-25" x2="13" y2="-25" ' + s + ' fill="none"/>'
+      + '<line x1="13" y1="-25" x2="13" y2="-42" ' + s + ' fill="none"/>'
+      + '<line x1="13" y1="-42" x2="30" y2="-42" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="25" x2="16" y2="25" ' + s + ' fill="none"/>'
+      + '<line x1="16" y1="25" x2="16" y2="42" ' + s + ' fill="none"/>'
+      + '<line x1="16" y1="42" x2="33" y2="42" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="0" x2="14" y2="0" ' + s + ' fill="none"/>'
+      + '<polygon points="3,-7 23,0 3,7" fill="' + f + '"/>'
+      + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
+      + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
+  }
+  function pmos2Svg(c){
+    var s = st(c), f = fill(c);
+    return ''
+      + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-33" x2="-10" y2="-16" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-8" x2="-10" y2="8" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="16" x2="-10" y2="33" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="-25" x2="13" y2="-25" ' + s + ' fill="none"/>'
+      + '<line x1="13" y1="-25" x2="13" y2="-42" ' + s + ' fill="none"/>'
+      + '<line x1="13" y1="-42" x2="30" y2="-42" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="25" x2="16" y2="25" ' + s + ' fill="none"/>'
+      + '<line x1="16" y1="25" x2="16" y2="42" ' + s + ' fill="none"/>'
+      + '<line x1="16" y1="42" x2="33" y2="42" ' + s + ' fill="none"/>'
+      + '<line x1="-10" y1="0" x2="14" y2="0" ' + s + ' fill="none"/>'
+      + '<polygon points="22,-7 2,0 22,7" fill="' + f + '"/>'
+      + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
+      + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
+  }
+  function symbolSVG(c){
+    if(!c) return '';
+    if(c.type === 'npntr2') return npnTr2Svg(c);
+    if(c.type === 'pnptr2') return pnpTr2Svg(c);
+    if(c.type === 'nmos2') return nmos2Svg(c);
+    if(c.type === 'pmos2') return pmos2Svg(c);
+    return null;
+  }
+
+  Object.assign(DEFS, {
+    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    npntr2: {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'},
+    pnptr2: {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'}
+  });
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(TYPES[type]){
+      var size = MOS_TYPES[type] ? 0.5 : 1;
+      return symbolSVG({type:type, color: color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:size, strokeDash:'solid'});
+    }
+    return prevCompSVG ? prevCompSVG(type, color) : '';
+  };
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(prevAddComp){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(MOS_TYPES[type] && opts.size == null) opts.size = 0.5;
+      var c = prevAddComp(type, x, y, opts);
+      if(c){
+        if(MOS_TYPES[type] && c.size == null) c.size = 0.5;
+        else if(c.size == null) c.size = 1;
+        if(TYPES[type] && !c.strokeDash) c.strokeDash = 'solid';
+      }
+      return c;
+    };
+  }
+
+  window.getTerms = getTerms = function(c){
+    var def = DEFS[c.type];
+    if(!def || !def.terms) return [];
+    var sz = compSize(c);
+    return def.terms.map(function(t){
+      var tx = (c.flip ? -t.x : t.x) * sz;
+      var ty = t.y * sz;
+      var a = (c.rotation || 0) * Math.PI / 180;
+      var rx = tx * Math.cos(a) - ty * Math.sin(a);
+      var ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  };
+
+  function normalizeSymbol(root, c){
+    var lw = lineWidth() / compSize(c);
+    var dash = dashArray(c && c.strokeDash);
+    root.querySelectorAll('line,path,rect,circle,ellipse,polygon,polyline').forEach(function(el){
+      if(el.classList && el.classList.contains('term-hit')) return;
+      var stroke = (el.getAttribute('stroke') || '').toLowerCase();
+      if(!stroke || stroke === 'none' || stroke === 'transparent' || stroke === '#3b82f6') return;
+      if((el.tagName || '').toLowerCase() === 'polygon' && (el.getAttribute('fill') || '').toLowerCase() !== 'none') return;
+      el.setAttribute('stroke-width', String(lw));
+      el.setAttribute('stroke-linecap', 'round');
+      el.setAttribute('stroke-linejoin', 'round');
+      if(dash) el.setAttribute('stroke-dasharray', dash);
+      else el.removeAttribute('stroke-dasharray');
+    });
+  }
+
+  var fallbackCompSVG = prevCompSVG;
+  window.renderComp = renderComp = function(c){
+    if(c.size == null) c.size = MOS_TYPES[c.type] ? 0.5 : 1;
+    if(!c.strokeDash) c.strokeDash = 'solid';
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var sz = compSize(c);
+    var scaleX = c.flip ? -1 : 1;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + (scaleX * sz) + ',' + sz + ')');
+    symbolG.innerHTML = TYPES[c.type] ? symbolSVG(c) : (fallbackCompSVG ? fallbackCompSVG(c.type, col(c)) : '');
+    normalizeSymbol(symbolG, c);
+
+    if(selectedIds.has(c.id)){
+      var def = DEFS[c.type] || {w:60,h:60};
+      var hw = Math.max((def.w || 60) / 2, 25) + 14;
+      var hh = Math.max((def.h || 60) / 2, 15) + 14;
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (DEFS[c.type].terms || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((DEFS[c.type].h || 60) / 2 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((DEFS[c.type].h || 60) / 2 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(c.size == null) c.size = MOS_TYPES[c.type] ? 0.5 : 1;
+    if(!c.strokeDash) c.strokeDash = 'solid';
+    if(!TYPES[c.type] && prevComponentToSVG) return prevComponentToSVG(c);
+    var sz = compSize(c);
+    var sx = c.flip ? -sz : sz;
+    var body = symbolSVG(c);
+    var labels = '';
+    if(c.ref) labels += '<text x="0" y="' + (-((DEFS[c.type].h || 60) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) labels += '<text x="0" y="' + (((DEFS[c.type].h || 60) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + body + '</g>' + labels + '</g>';
+  };
+
+  function setPaletteIcon(id, type, viewBox){
+    var item = document.getElementById(id);
+    if(!item) return;
+    var old = item.querySelector('svg.pal-icon');
+    if(!old) return;
+    old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg>';
+  }
+  setPaletteIcon('pal-npntr2', 'npntr2', '-38 -40 78 74');
+  setPaletteIcon('pal-pnptr2', 'pnptr2', '-38 -40 84 74');
+  setPaletteIcon('pal-nmos2', 'nmos2', '-48 -48 100 96');
+  setPaletteIcon('pal-pmos2', 'pmos2', '-48 -48 100 96');
+
+  try{
+    components.forEach(function(c){
+      if(MOS_TYPES[c.type] && c.size == null) c.size = 0.5;
+      if(TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+    });
+    renderAll();
+    showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('TR2/MOSFET size and line-width final fix failed', e); }
+})();
+</script>
+
+
+<script id="mosfet2-svg-data-exact-final-20260617">
+// MOSFET2: 添付SVGの形を保ちつつ、端子の線端が size=0.5 後に5pxグリッドへ乗るよう座標補正した最終補正。
+// - SVG内の group translate / path matrix を反映した実座標から、中心・端子・配置関係を計算済み。
+// - 線幅は上部バーの「線幅」と一括連動し、サイズ変更後も他素子と同じ見た目の太さにする。
+// - Tr2 系はデフォルトを 1/2 サイズにする。
+(function(){
+  if(window.__mosfet2SvgDataExactFinal20260617) return;
+  window.__mosfet2SvgDataExactFinal20260617 = true;
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {pmos2:true, nmos2:true};
+  var TR2_TYPES = {npntr2:true, pnptr2:true};
+  var DEFAULT_SIZE = {nmos2:0.5, pmos2:0.5, npntr2:0.5, pnptr2:0.5};
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function defaultSize(type){ return DEFAULT_SIZE[type] || 1; }
+  function compSize(c){
+    var type = c && c.type;
+    return clamp(c && c.size != null ? c.size : defaultSize(type), MIN_SIZE, MAX_SIZE);
+  }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function col(c){ return (c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR; }
+  function dashArray(style){
+    if(style === 'dotted') return '1 6';
+    if(style === 'dashed') return '8 5';
+    return '';
+  }
+  function styleAttrs(c){
+    var dash = dashArray(c && c.strokeDash);
+    return (dash ? ' stroke-dasharray="' + dash + '"' : '') + ' stroke-linecap="round" stroke-linejoin="round"';
+  }
+  function st(c){ return 'stroke="' + esc(col(c)) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c); }
+  function f(c){ return esc(col(c)); }
+  function polyline(points, c){ return '<polyline points="' + points + '" ' + st(c) + ' fill="none"/>'; }
+  function polygon(points, c){ return '<polygon points="' + points + '" fill="' + f(c) + '" stroke="' + f(c) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c) + '/>'; }
+
+  // nmos(4).svg: group translate(-578,-351) と各 path matrix を適用後、bbox 中心(82.3797,100.203)を原点、scale=0.55で正規化。
+  var NMOS2_ITEMS = [
+    ['line','-20,-20 -20,20'],
+    ['line','-20,20 -40,20'],
+    ['line','-10,-10 -10,-30'],
+    ['line','-10,5 -10,-5'],
+    ['line','-10,30 -10,10'],
+    ['poly','5,-5 20,0 5,5'],
+    ['line','20,-20 -10,-20'],
+    ['line','20,20 -10,20'],
+    ['line','5,0 -10,0'],
+    ['line','20,0 20,20'],
+    ['line','20,-50 20,-20'],
+    ['poly','40,-10 35,10 30,-10'],
+    ['line','40,10 30,10'],
+    ['line','20,20 20,50'],
+    ['line','35,-25 35,25'],
+    ['line','35,-25 20,-25'],
+    ['line','35,25 20,25']
+  ];
+
+  // pmos(4).svg: group translate(-311,-349) と各 path matrix を適用後、bbox 中心(81.0002,99.203)を原点、scale=0.56で正規化。
+  var PMOS2_ITEMS = [
+    ['line','-20,-20 -20,20'],
+    ['line','-20,20 -40,20'],
+    ['line','-10,-10 -10,-30'],
+    ['line','-10,5 -10,-5'],
+    ['line','-10,30 -10,10'],
+    ['poly','5,10 -10,5 5,0'],
+    ['line','20,-20 -10,-20'],
+    ['line','20,20 -10,20'],
+    ['line','20,5 5,5'],
+    ['line','20,5 20,20'],
+    ['line','20,-50 20,-20'],
+    ['poly','30,5 35,-10 40,5'],
+    ['line','40,-10 30,-10'],
+    ['line','20,20 20,50'],
+    ['line','35,-25 35,25'],
+    ['line','35,-25 20,-25'],
+    ['line','35,25 20,25']
+  ];
+
+  function mosSvgFromItems(items, c){
+    var out = '';
+    for(var i=0; i<items.length; i++){
+      out += items[i][0] === 'poly' ? polygon(items[i][1], c) : polyline(items[i][1], c);
+    }
+    return out;
+  }
+  function npnTr2Svg(c){
+    var s = st(c), fill = f(c);
+    return ''
+      + '<line x1="-30" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-25" x2="0" y2="20" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-10" x2="30" y2="-30" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="5" x2="30" y2="30" ' + s + ' fill="none"/>'
+      + '<polygon points="22,14 32,31 14,24" fill="' + fill + '" stroke="' + fill + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c) + '/>';
+  }
+  function pnpTr2Svg(c){
+    var s = st(c), fill = f(c);
+    return ''
+      + '<line x1="-30" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-25" x2="0" y2="20" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-10" x2="30" y2="-30" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="5" x2="30" y2="30" ' + s + ' fill="none"/>'
+      + '<polygon points="10,17 -2,2 18,6" fill="' + fill + '" stroke="' + fill + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c) + '/>';
+  }
+  function symbolSVG(c){
+    if(!c) return '';
+    if(c.type === 'nmos2') return mosSvgFromItems(NMOS2_ITEMS, c);
+    if(c.type === 'pmos2') return mosSvgFromItems(PMOS2_ITEMS, c);
+    if(c.type === 'npntr2') return npnTr2Svg(c);
+    if(c.type === 'pnptr2') return pnpTr2Svg(c);
+    return null;
+  }
+
+  Object.assign(DEFS, {
+    nmos2:  {name:'NMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:10,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'PMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:-10,id:'B'}], defVal:'', pre:'M'},
+    npntr2: {name:'NPNtr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'C'},{x:30,y:30,id:'E'}], defVal:'', pre:'Q'},
+    pnptr2: {name:'PNPTr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'E'},{x:30,y:30,id:'C'}], defVal:'', pre:'Q'}
+  });
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(TYPES[type]){
+      var ds = defaultSize(type);
+      var body = symbolSVG({type:type, color:color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:ds, strokeDash:'solid'});
+      return '<g transform="scale(' + ds + ')">' + body + '</g>';
+    }
+    return prevCompSVG ? prevCompSVG(type, color) : '';
+  };
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(prevAddComp){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(TYPES[type] && opts.size == null) opts.size = defaultSize(type);
+      var c = prevAddComp(type, x, y, opts);
+      if(c){
+        if(TYPES[c.type] && c.size == null) c.size = defaultSize(c.type);
+        if(TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+      }
+      return c;
+    };
+  }
+
+  window.getTerms = getTerms = function(c){
+    var def = DEFS[c.type];
+    if(!def || !def.terms) return [];
+    var sz = compSize(c);
+    return def.terms.map(function(t){
+      var tx = (c.flip ? -t.x : t.x) * sz;
+      var ty = t.y * sz;
+      var a = (c.rotation || 0) * Math.PI / 180;
+      var rx = tx * Math.cos(a) - ty * Math.sin(a);
+      var ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  };
+
+  var fallbackCompSVG = prevCompSVG;
+  window.renderComp = renderComp = function(c){
+    if(TYPES[c.type] && c.size == null) c.size = defaultSize(c.type);
+    if(TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var sz = compSize(c);
+    var scaleX = c.flip ? -1 : 1;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + (scaleX * sz) + ',' + sz + ')');
+    symbolG.innerHTML = TYPES[c.type] ? symbolSVG(c) : (fallbackCompSVG ? fallbackCompSVG(c.type, col(c)) : '');
+
+    if(selectedIds.has(c.id)){
+      var def = DEFS[c.type] || {w:60,h:60};
+      var hw = Math.max((def.w || 60) / 2, 25) + 14;
+      var hh = Math.max((def.h || 60) / 2, 15) + 14;
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (DEFS[c.type].terms || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((DEFS[c.type].h || 60) / 2 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((DEFS[c.type].h || 60) / 2 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(TYPES[c.type] && c.size == null) c.size = defaultSize(c.type);
+    if(TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+    if(!TYPES[c.type] && prevComponentToSVG) return prevComponentToSVG(c);
+    var sz = compSize(c);
+    var sx = c.flip ? -sz : sz;
+    var body = symbolSVG(c);
+    var labels = '';
+    if(c.ref) labels += '<text x="0" y="' + (-((DEFS[c.type].h || 60) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) labels += '<text x="0" y="' + (((DEFS[c.type].h || 60) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + body + '</g>' + labels + '</g>';
+  };
+
+  function setPaletteIcon(id, type, viewBox){
+    var item = document.getElementById(id);
+    if(!item) return;
+    var old = item.querySelector('svg.pal-icon');
+    if(!old) return;
+    old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg>';
+  }
+
+  setPaletteIcon('pal-nmos2', 'nmos2', '-27 -34 56 70');
+  setPaletteIcon('pal-pmos2', 'pmos2', '-27 -34 56 70');
+  setPaletteIcon('pal-npntr2', 'npntr2', '-20 -20 42 42');
+  setPaletteIcon('pal-pnptr2', 'pnptr2', '-20 -20 44 42');
+
+  try{
+    components.forEach(function(c){
+      if(TYPES[c.type] && c.size == null) c.size = defaultSize(c.type);
+      if(TYPES[c.type] && !c.strokeDash) c.strokeDash = 'solid';
+    });
+    renderAll();
+    showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('MOSFET2 SVG data exact final fix failed', e); }
+})();
+</script>
+
+
+<script id="tr2-mosfet2-half-size-on-place-final-20260617">
+// NPNtr2 / PNPTr2 / NMOS2 / PMOS2 は、パレット選択中のゴースト表示はそのままに、
+// キャンバスへ配置確定した瞬間だけ 1/2 サイズで作成する。
+// これにより、配置後だけ他素子の約2倍に見える問題を補正する。
+(function(){
+  if(window.__tr2Mosfet2HalfSizeOnPlaceFinal20260617) return;
+  window.__tr2Mosfet2HalfSizeOnPlaceFinal20260617 = true;
+
+  var HALF_ON_PLACE_TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var PLACE_SIZE = 0.25; // 既存の既定 0.5 に対して、配置時だけさらに 1/2。
+
+  var prevAddCompHalfOnPlace = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddCompHalfOnPlace === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(HALF_ON_PLACE_TYPES[type] && opts.size == null){
+        opts = Object.assign({}, opts, {size: PLACE_SIZE});
+      }
+      return prevAddCompHalfOnPlace.call(this, type, x, y, opts);
+    };
+  }
+})();
+</script>
+
+
+
+<script id="tr2-mosfet2-size-linewidth-place-match-final-20260617b">
+// 最終補正:
+// - NPNtr2 / PNPTr2 / NMOS2 / PMOS2 は、パレット選択中のゴーストと同じ倍率で配置する。
+// - 旧補正で 0.25 へ小さくなったもの、または size 未指定/1 のものも、初回だけ 0.5 に正規化する。
+// - 線幅はスケール後の見た目が他素子と同じになるよう、内部 stroke-width を size で割って補正する。
+(function(){
+  if(window.__tr2Mosfet2SizeLinewidthPlaceMatchFinal20260617b) return;
+  window.__tr2Mosfet2SizeLinewidthPlaceMatchFinal20260617b = true;
+
+  var TARGET_TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var TARGET_SIZE = 0.5; // compSVG(type) のゴースト表示倍率と一致させる。
+  var MIN_LW = 0.5;
+  var MAX_LW = 10;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function isTarget(c){ return !!(c && TARGET_TYPES[c.type]); }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), MIN_LW, MAX_LW);
+    return clamp(window.circuitLineWidth || 1.6, MIN_LW, MAX_LW);
+  }
+  function compSize(c){
+    return clamp(c && c.size != null ? c.size : TARGET_SIZE, 0.25, 2.4);
+  }
+  function normalizeComponentSize(c){
+    if(!isTarget(c)) return;
+    // 既存データや旧補正で、配置後だけ大きい/小さい状態になったものを初回に揃える。
+    if(!c.__tr2Mosfet2PlacedSizeMatched){
+      c.size = TARGET_SIZE;
+      c.__tr2Mosfet2PlacedSizeMatched = true;
+    }
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+  function normalizeAllComponentSizes(){
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(!Array.isArray(list)) return;
+    list.forEach(normalizeComponentSize);
+  }
+  function normalizeLineWidths(){
+    try{
+      var list = window.components || (typeof components !== 'undefined' ? components : []);
+      if(!Array.isArray(list)) return;
+      var lwBase = lineWidth();
+      document.querySelectorAll('#comps-layer g[data-id]').forEach(function(g){
+        var id = g.getAttribute('data-id');
+        var c = list.find(function(x){ return x && x.id === id; });
+        if(!isTarget(c)) return;
+        var lw = lwBase / compSize(c);
+        g.querySelectorAll('line,path,rect,circle,ellipse,polygon,polyline').forEach(function(el){
+          if(el.classList && el.classList.contains('term-hit')) return;
+          var tag = (el.tagName || '').toLowerCase();
+          var stroke = (el.getAttribute('stroke') || '').toLowerCase();
+          var fill = (el.getAttribute('fill') || '').toLowerCase();
+          if(stroke && stroke !== 'none' && stroke !== 'transparent' && stroke !== '#3b82f6'){
+            el.setAttribute('stroke-width', String(lw));
+            el.setAttribute('stroke-linecap', 'round');
+            el.setAttribute('stroke-linejoin', 'round');
+          }else if(tag === 'polygon' && fill && fill !== 'none' && fill !== 'transparent'){
+            // 矢印などの塗りだけの部品は線幅対象外。ただし輪郭がある場合に備えて属性は壊さない。
+          }
+        });
+      });
+    }catch(e){ console.error('TR2/MOSFET2 final line-width normalization failed', e); }
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(TARGET_TYPES[type]){
+        // 旧 half-on-place の 0.25 上書きを避け、ゴースト表示と同じ 0.5 を明示する。
+        opts = Object.assign({}, opts, {size: TARGET_SIZE});
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      if(TARGET_TYPES[type] && c){
+        c.size = TARGET_SIZE;
+        c.__tr2Mosfet2PlacedSizeMatched = true;
+        if(!c.strokeDash) c.strokeDash = 'solid';
+      }
+      return c;
+    };
+  }
+
+  var prevRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(typeof prevRenderAll === 'function'){
+    window.renderAll = renderAll = function(){
+      normalizeAllComponentSizes();
+      var r = prevRenderAll.apply(this, arguments);
+      normalizeLineWidths();
+      return r;
+    };
+  }
+
+  var prevSetCircuitLineWidth = window.setCircuitLineWidth || (typeof setCircuitLineWidth === 'function' ? setCircuitLineWidth : null);
+  if(typeof prevSetCircuitLineWidth === 'function'){
+    window.setCircuitLineWidth = setCircuitLineWidth = function(value, skipSaveState){
+      var r = prevSetCircuitLineWidth.apply(this, arguments);
+      normalizeLineWidths();
+      return r;
+    };
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      normalizeComponentSize(c);
+      return prevComponentToSVG.call(this, c);
+    };
+  }
+
+  try{
+    normalizeAllComponentSizes();
+    if(typeof renderAll === 'function') renderAll();
+    else normalizeLineWidths();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('TR2/MOSFET2 size/line-width final patch failed', e); }
+})();
+</script>
+
+
+<script id="component-solid-dotted-final-20260617">
+// 素子にも図形と同じ「実線 / 点線 / 破線」を確実に適用する最終パッチ。
+(function(){
+  if(window.__componentSolidDottedFinal20260617) return;
+  window.__componentSolidDottedFinal20260617 = true;
+
+  var STYLE_VALUES = {solid:true, dotted:true, dashed:true};
+  var DEFAULT_DASH = 'solid';
+
+  function escHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function normalizeDash(v){ return STYLE_VALUES[v] ? v : DEFAULT_DASH; }
+  function dashArray(v){
+    v = normalizeDash(v);
+    if(v === 'dotted') return '1 4';
+    if(v === 'dashed') return '8 4';
+    return '';
+  }
+  function isComponentId(id){
+    return typeof id === 'string' && id && !id.startsWith('wire:') && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:');
+  }
+  function componentList(){
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    return Array.isArray(list) ? list : [];
+  }
+  function selectedComponentsForDash(){
+    var ids = window.selectedIds || (typeof selectedIds !== 'undefined' ? selectedIds : null);
+    if(!ids || typeof ids.forEach !== 'function') return [];
+    var list = componentList();
+    var out = [];
+    ids.forEach(function(id){
+      if(!isComponentId(id)) return;
+      var c = list.find(function(x){ return x && x.id === id; });
+      if(c) out.push(c);
+    });
+    return out;
+  }
+  function getLineWidth(c){
+    var base = 1.6;
+    if(typeof window.getCircuitLineWidth === 'function') base = Number(window.getCircuitLineWidth()) || base;
+    else if(typeof window.circuitLineWidth !== 'undefined') base = Number(window.circuitLineWidth) || base;
+    var sz = Number(c && c.size);
+    if(!Number.isFinite(sz) || sz <= 0) sz = 1;
+    return Math.max(0.5, base / sz);
+  }
+  function colorOf(c){ return (c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : '#6b7280'); }
+  function ensureComponentDash(c){ if(c && !c.strokeDash) c.strokeDash = DEFAULT_DASH; }
+
+  function applyDashToGraphicElements(root, c){
+    if(!root || !c) return;
+    ensureComponentDash(c);
+    var dash = dashArray(c.strokeDash);
+    var lw = getLineWidth(c);
+    var fallbackColor = colorOf(c);
+    var els = root.querySelectorAll('line,path,rect,circle,ellipse,polyline,polygon');
+    els.forEach(function(el){
+      if(el.classList && el.classList.contains('term-hit')) return;
+      var stroke = (el.getAttribute('stroke') || '').trim();
+      var fill = (el.getAttribute('fill') || '').trim();
+      var isSelection = stroke.toLowerCase() === '#3b82f6' || (el.getAttribute('data-selection') === '1');
+      if(isSelection) return;
+
+      if(dash){
+        if(stroke && !/^(none|transparent)$/i.test(stroke)){
+          el.setAttribute('stroke-dasharray', dash);
+          el.setAttribute('stroke-linecap', 'round');
+          el.setAttribute('stroke-linejoin', 'round');
+        }else if(fill && !/^(none|transparent|white|#fff|#ffffff)$/i.test(fill)){
+          // ダイオードや矢印などの塗りだけの素子も、点線/破線では輪郭線として表現する。
+          el.setAttribute('fill', 'none');
+          el.setAttribute('stroke', fill || fallbackColor);
+          el.setAttribute('stroke-width', String(lw));
+          el.setAttribute('stroke-dasharray', dash);
+          el.setAttribute('stroke-linecap', 'round');
+          el.setAttribute('stroke-linejoin', 'round');
+        }
+      }else{
+        el.removeAttribute('stroke-dasharray');
+      }
+    });
+  }
+
+  window.setComponentDashStyle = function(value){
+    var comps = selectedComponentsForDash();
+    if(!comps.length) return;
+    value = normalizeDash(value);
+    var changed = comps.some(function(c){ return normalizeDash(c.strokeDash) !== value; });
+    if(!changed) return;
+    if(typeof saveState === 'function') saveState();
+    comps.forEach(function(c){ c.strokeDash = value; });
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  };
+
+  function dashSelectHtml(value){
+    value = normalizeDash(value);
+    return '<select class="prop-input" onchange="setComponentDashStyle(this.value)">'
+      + '<option value="solid"' + (value === 'solid' ? ' selected' : '') + '>実線</option>'
+      + '<option value="dotted"' + (value === 'dotted' ? ' selected' : '') + '>点線</option>'
+      + '<option value="dashed"' + (value === 'dashed' ? ' selected' : '') + '>破線</option>'
+      + '</select>';
+  }
+  function injectDashControl(){
+    var body = document.getElementById('prop-body');
+    if(!body || body.querySelector('[data-component-dash-final="1"]')) return;
+    var comps = selectedComponentsForDash();
+    if(!comps.length) return;
+    comps.forEach(ensureComponentDash);
+    var same = comps.every(function(c){ return normalizeDash(c.strokeDash) === normalizeDash(comps[0].strokeDash); });
+    var value = same ? normalizeDash(comps[0].strokeDash) : DEFAULT_DASH;
+    var div = document.createElement('div');
+    div.className = 'prop-field';
+    div.setAttribute('data-component-dash-final', '1');
+    div.innerHTML = '<label class="prop-label">線種</label>' + dashSelectHtml(value)
+      + (!same ? '<div class="hint">複数選択で線種が混在しています。選ぶと一括変更します。</div>' : '');
+    var colorInput = body.querySelector('input[type="color"]');
+    var colorField = colorInput && colorInput.closest ? colorInput.closest('.prop-field') : null;
+    if(colorField && colorField.parentNode === body) colorField.insertAdjacentElement('afterend', div);
+    else {
+      var danger = body.querySelector('.prop-btn.danger');
+      if(danger) body.insertBefore(div, danger); else body.appendChild(div);
+    }
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(!opts.strokeDash) opts = Object.assign({}, opts, {strokeDash: DEFAULT_DASH});
+      var c = prevAddComp.call(this, type, x, y, opts);
+      ensureComponentDash(c);
+      return c;
+    };
+  }
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  if(typeof prevRenderComp === 'function'){
+    window.renderComp = renderComp = function(c){
+      ensureComponentDash(c);
+      var g = prevRenderComp.call(this, c);
+      applyDashToGraphicElements(g, c);
+      return g;
+    };
+  }
+
+  var prevRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(typeof prevRenderAll === 'function'){
+    window.renderAll = renderAll = function(){
+      componentList().forEach(ensureComponentDash);
+      var r = prevRenderAll.apply(this, arguments);
+      componentList().forEach(function(c){
+        var g = document.querySelector('#comps-layer g[data-id="' + String(c.id).replace(/"/g, '\\"') + '"]');
+        applyDashToGraphicElements(g, c);
+      });
+      return r;
+    };
+  }
+
+  var prevShowProps = window.showProps || (typeof showProps === 'function' ? showProps : null);
+  if(typeof prevShowProps === 'function'){
+    window.showProps = showProps = function(){
+      var r = prevShowProps.apply(this, arguments);
+      injectDashControl();
+      return r;
+    };
+  }
+
+  var prevSetProp = window.setProp || (typeof setProp === 'function' ? setProp : null);
+  if(typeof prevSetProp === 'function'){
+    window.setProp = setProp = function(key, val){
+      if(key === 'strokeDash') return window.setComponentDashStyle(val);
+      return prevSetProp.apply(this, arguments);
+    };
+  }
+
+  function applyDashToExportMarkup(markup, c){
+    var dash = dashArray(c && c.strokeDash);
+    if(!dash) return markup;
+    var lw = getLineWidth(c);
+    var fallbackColor = colorOf(c);
+    var out = String(markup).replace(/<(line|path|rect|circle|ellipse|polyline|polygon)\b([^>]*?)(\/?)>/gi, function(full, tag, attrs, selfClose){
+      if(/class\s*=\s*['"][^'"]*term-hit/i.test(attrs)) return full;
+      if(/stroke-dasharray\s*=/i.test(attrs)) return full;
+      var strokeMatch = attrs.match(/\bstroke\s*=\s*['"]([^'"]*)['"]/i);
+      var fillMatch = attrs.match(/\bfill\s*=\s*['"]([^'"]*)['"]/i);
+      var stroke = strokeMatch ? strokeMatch[1] : '';
+      var fill = fillMatch ? fillMatch[1] : '';
+      var add = '';
+      if(stroke && !/^(none|transparent)$/i.test(stroke)){
+        add = ' stroke-dasharray="' + dash + '" stroke-linecap="round" stroke-linejoin="round"';
+        return '<' + tag + attrs + add + (selfClose || '') + '>';
+      }
+      if(fill && !/^(none|transparent|white|#fff|#ffffff)$/i.test(fill)){
+        var newAttrs = attrs.replace(/\bfill\s*=\s*(['"])[^'"]*\1/i, 'fill="none"');
+        add = ' stroke="' + escHtml(fill || fallbackColor) + '" stroke-width="' + lw + '" stroke-dasharray="' + dash + '" stroke-linecap="round" stroke-linejoin="round"';
+        return '<' + tag + newAttrs + add + (selfClose || '') + '>';
+      }
+      return full;
+    });
+    return out;
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      ensureComponentDash(c);
+      return applyDashToExportMarkup(prevComponentToSVG.call(this, c), c);
+    };
+  }
+
+  var prevExportSvgMarkup = window.exportSvgMarkup || (typeof exportSvgMarkup === 'function' ? exportSvgMarkup : null);
+  if(typeof prevExportSvgMarkup === 'function'){
+    window.exportSvgMarkup = exportSvgMarkup = function(){
+      var out = prevExportSvgMarkup.apply(this, arguments);
+      try{
+        if(out && out.svg){
+          componentList().forEach(function(c){ ensureComponentDash(c); });
+          // DOM由来のエクスポートでも、直前レンダリング後の点線属性を使えるよう再描画する。
+          if(typeof renderAll === 'function') renderAll();
+        }
+      }catch(e){}
+      return out;
+    };
+  }
+
+  try{
+    componentList().forEach(ensureComponentDash);
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+  }catch(e){ console.error('component solid/dotted final patch failed', e); }
+})();
+</script>
+
+
+<script id="filled-polygon-dash-arrowhead-fix-20260617">
+// 修正: 素子を点線/破線にしたときも、トランジスタ/MOSFETの矢印（三角形）は点線化しない。
+// 線分だけに線種を反映し、塗りつぶし polygon の矢印先端は常に塗りつぶし形状として扱う。
+(function(){
+  if(window.__filledPolygonDashArrowheadFix20260617) return;
+  window.__filledPolygonDashArrowheadFix20260617 = true;
+
+  var ARROWHEAD_TYPES = {
+    npn:true, pnp:true, nmos:true, pmos:true,
+    npntr2:true, pnptr2:true, nmos2:true, pmos2:true
+  };
+
+  function isFilledPolygon(el){
+    if(!el || (el.tagName || '').toLowerCase() !== 'polygon') return false;
+    var fill = (el.getAttribute('fill') || '').trim().toLowerCase();
+    return !!fill && fill !== 'none' && fill !== 'transparent';
+  }
+
+  function colorForComponent(c, fallback){
+    return (c && c.color) || fallback || (typeof currentColor !== 'undefined' ? currentColor : '#6b7280');
+  }
+
+  function cleanupFilledPolygon(el){
+    el.removeAttribute('stroke-dasharray');
+    // MOSFET2/Tr2 の矢印は polygon 自体に stroke が付いている場合があるため、
+    // 点線の残りや線幅の影響が出ないよう、輪郭線を消して塗りつぶしだけにする。
+    el.removeAttribute('stroke');
+    el.removeAttribute('stroke-width');
+    el.removeAttribute('stroke-linecap');
+    el.removeAttribute('stroke-linejoin');
+  }
+
+  function restoreArrowheadPolygon(el, c){
+    // 以前の点線処理で、塗りつぶし矢印が fill="none" + 点線stroke に変換済みの場合も戻す。
+    var stroke = (el.getAttribute('stroke') || '').trim();
+    var fill = (el.getAttribute('fill') || '').trim().toLowerCase();
+    var hasDash = !!el.getAttribute('stroke-dasharray');
+    if(fill === 'none' && stroke && hasDash){
+      el.setAttribute('fill', colorForComponent(c, stroke));
+      cleanupFilledPolygon(el);
+      return true;
+    }
+    return false;
+  }
+
+  function cleanupNode(root, c){
+    if(!root || !root.querySelectorAll) return root;
+    var isArrowheadType = !!(c && ARROWHEAD_TYPES[c.type]);
+    root.querySelectorAll('polygon').forEach(function(el){
+      if(isArrowheadType && restoreArrowheadPolygon(el, c)) return;
+      if(!isFilledPolygon(el)) return;
+      cleanupFilledPolygon(el);
+    });
+    return root;
+  }
+
+  function cleanupMarkup(markup, c){
+    markup = String(markup || '');
+    if(!markup || markup.indexOf('<polygon') === -1) return markup;
+    try{
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.innerHTML = markup;
+      cleanupNode(svg, c || null);
+      return svg.innerHTML;
+    }catch(e){
+      // DOMで処理できない場合の保険。fill="none" 以外の polygon から dash/stroke 系属性を外す。
+      return markup.replace(/<polygon\b([^>]*)>/gi, function(full, attrs){
+        if(c && ARROWHEAD_TYPES[c.type] && /\bfill\s*=\s*"none"/i.test(attrs) && /\bstroke-dasharray\s*=/i.test(attrs)){
+          var strokeMatch = attrs.match(/\bstroke\s*=\s*"([^"]+)"/i);
+          var fillColor = colorForComponent(c, strokeMatch && strokeMatch[1]);
+          attrs = attrs
+            .replace(/\s+fill\s*=\s*"none"/i, ' fill="' + fillColor + '"')
+            .replace(/\s+stroke-dasharray\s*=\s*"[^"]*"/gi, '')
+            .replace(/\s+stroke-width\s*=\s*"[^"]*"/gi, '')
+            .replace(/\s+stroke-linecap\s*=\s*"[^"]*"/gi, '')
+            .replace(/\s+stroke-linejoin\s*=\s*"[^"]*"/gi, '')
+            .replace(/\s+stroke\s*=\s*"[^"]*"/gi, '');
+          return '<polygon' + attrs + '>';
+        }
+        if(!/\bfill\s*=\s*"(?!none\b|transparent\b)[^"]+"/i.test(attrs)) return full;
+        attrs = attrs
+          .replace(/\s+stroke-dasharray\s*=\s*"[^"]*"/gi, '')
+          .replace(/\s+stroke-width\s*=\s*"[^"]*"/gi, '')
+          .replace(/\s+stroke-linecap\s*=\s*"[^"]*"/gi, '')
+          .replace(/\s+stroke-linejoin\s*=\s*"[^"]*"/gi, '')
+          .replace(/\s+stroke\s*=\s*"[^"]*"/gi, '');
+        return '<polygon' + attrs + '>';
+      });
+    }
+  }
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  if(typeof prevRenderComp === 'function'){
+    window.renderComp = renderComp = function(c){
+      var g = prevRenderComp.call(this, c);
+      cleanupNode(g, c);
+      return g;
+    };
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      return cleanupMarkup(prevComponentToSVG.call(this, c), c);
+    };
+  }
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  if(typeof prevCompSVG === 'function'){
+    window.compSVG = compSVG = function(type, color){
+      return cleanupMarkup(prevCompSVG.call(this, type, color), {type:type, color:color});
+    };
+  }
+
+  var prevExportSvgMarkup = window.exportSvgMarkup || (typeof exportSvgMarkup === 'function' ? exportSvgMarkup : null);
+  if(typeof prevExportSvgMarkup === 'function'){
+    window.exportSvgMarkup = exportSvgMarkup = function(){
+      var out = prevExportSvgMarkup.apply(this, arguments);
+      if(out && typeof out.svg === 'string') out.svg = cleanupMarkup(out.svg);
+      return out;
+    };
+  }
+
+  try{
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+  }catch(e){ console.error('filled polygon dash arrowhead fix failed', e); }
+})();
+</script>
+
+</body>
+</html>
