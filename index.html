@@ -15571,5 +15571,89 @@ renderAll();showProps();
 })();
 </script>
 
+
+<script id="tr2-ghost-size-match-on-place-final-20260617">
+// NPNtr2 / PNPTr2: 配置後の実サイズを、パレット選択中のゴースト表示サイズに合わせる。
+// 旧パッチの既定 size=0.45 により、ゴーストでは端子がグリッドに合っていても
+// 配置確定後にわずかに縮んで右側の斜線端子がずれるため、新規配置は size=0.5 に統一する。
+(function(){
+  if(window.__tr2GhostSizeMatchOnPlaceFinal20260617) return;
+  window.__tr2GhostSizeMatchOnPlaceFinal20260617 = true;
+
+  var TR2_TYPES = {npntr2:true, pnptr2:true};
+  var GHOST_MATCH_SIZE = 0.5;
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+
+  function isTr2Type(type){ return !!TR2_TYPES[type]; }
+  function isTr2Comp(c){ return !!(c && TR2_TYPES[c.type]); }
+  function clampSize(v){
+    v = Number(v);
+    if(!Number.isFinite(v)) return GHOST_MATCH_SIZE;
+    return Math.max(MIN_SIZE, Math.min(MAX_SIZE, v));
+  }
+  function normalizePlacedTr2(c, forceGhostSize){
+    if(!isTr2Comp(c)) return;
+    if(forceGhostSize || c.size == null){
+      c.size = GHOST_MATCH_SIZE;
+      c.__tr2GhostSizeMatched = true;
+    }else{
+      c.size = clampSize(c.size);
+    }
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      var callerHadNoSize = isTr2Type(type) && (opts.size == null || opts.__callerHadNoSize === true);
+      if(isTr2Type(type)){
+        opts = Object.assign({}, opts, {
+          size: callerHadNoSize ? GHOST_MATCH_SIZE : clampSize(opts.size),
+          strokeDash: opts.strokeDash || 'solid',
+          __callerHadNoSize: undefined
+        });
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      if(isTr2Comp(c)) normalizePlacedTr2(c, callerHadNoSize);
+      return c;
+    };
+  }
+
+  var prevRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(typeof prevRenderAll === 'function'){
+    window.renderAll = renderAll = function(){
+      try{
+        var list = window.components || (typeof components !== 'undefined' ? components : []);
+        if(Array.isArray(list)){
+          list.forEach(function(c){
+            if(!isTr2Comp(c)) return;
+            normalizePlacedTr2(c, false);
+          });
+        }
+      }catch(e){}
+      return prevRenderAll.apply(this, arguments);
+    };
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      normalizePlacedTr2(c, false);
+      return prevComponentToSVG.call(this, c);
+    };
+  }
+
+  try{
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(Array.isArray(list)) list.forEach(function(c){ normalizePlacedTr2(c, false); });
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('NPNtr2/PNPTr2 ghost size match final fix failed', e); }
+})();
+</script>
+
 </body>
 </html>
