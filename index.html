@@ -2695,7 +2695,14 @@ function showWireProps(w){
 function setSelectedWireColor(color){ if(!selectedWireId) return; const w=wires.find(x=>x.id===selectedWireId); if(w){ w.color=color; renderAll(); showWireProps(w); } }
 
 function showProps(){
-  const title=document.getElementById('prop-title'), sub=document.getElementById('prop-sub'), body=document.getElementById('prop-body');
+  // [PROPS-FIX] 入力中に innerHTML を丸ごと書き換えるとスマホでフォーカスが飛ぶ。
+  // prop-body 内の input/textarea/select がフォーカスされている間は再構築をスキップする。
+  const body = document.getElementById('prop-body');
+  if(body){
+    const ae = document.activeElement;
+    if(ae && body.contains(ae) && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
+  }
+  const title=document.getElementById('prop-title'), sub=document.getElementById('prop-sub');
   if(selectedIds.size===1){
     const id=[...selectedIds][0];
     if(id.startsWith('math:')){
@@ -7503,6 +7510,10 @@ body.wire-mode #canvas * {
   function exportSvgMarkupForPng(){
     if(typeof window.fitAllMathLabels === 'function') window.fitAllMathLabels();
     const bb = getBoundingBox();
+    // [PNG-FIX-1] getBoundingBox が null を返す場合（空キャンバス）はガードする。
+    // 呼び出し元でも !hasDrawableContent チェックがあるが、shapes 等だけがある場合に
+    // getBoundingBox が null になりうるため、ここでも防御する。
+    if(!bb){ return {svg:'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>', W:1, H:1}; }
     const pad = 50;
     const W = bb.maxX - bb.minX + pad * 2;
     const H = bb.maxY - bb.minY + pad * 2;
@@ -7535,39 +7546,45 @@ body.wire-mode #canvas * {
     if(!filename) return;
     const out = exportSvgMarkupForPng();
     const scale = 2;
+    // [PNG-FIX-2] canvas の width/height が 0 だと toBlob がエラーになる。
+    const canW = Math.max(1, Math.ceil(out.W * scale));
+    const canH = Math.max(1, Math.ceil(out.H * scale));
     const img = new Image();
     const blob = new Blob([out.svg], {type:'image/svg+xml;charset=utf-8'});
     const url = URL.createObjectURL(blob);
+    // img が onload も onerror も呼ばれないまま消える場合に備えた safeguard。
+    const safeRevoke = (() => { let done = false; return () => { if(!done){ done=true; URL.revokeObjectURL(url); } }; })();
+    const timeout = setTimeout(() => { safeRevoke(); }, 15000);
     img.onload = () => {
+      clearTimeout(timeout);
       const can = document.createElement('canvas');
-      can.width = Math.ceil(out.W * scale);
-      can.height = Math.ceil(out.H * scale);
+      can.width = canW;
+      can.height = canH;
       const ctx = can.getContext('2d');
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, can.width, can.height);
       ctx.drawImage(img, 0, 0, can.width, can.height);
-      const finish = () => URL.revokeObjectURL(url);
       try{
         if(can.toBlob){
           can.toBlob(pngBlob => {
-            if(!pngBlob){ alert('PNG出力に失敗しました。'); finish(); return; }
+            safeRevoke();
+            if(!pngBlob){ alert('PNG出力に失敗しました。'); return; }
             downloadBlobPng(pngBlob, filename);
-            finish();
           }, 'image/png');
         }else{
           const a = document.createElement('a');
           a.href = can.toDataURL('image/png');
           a.download = filename;
           a.click();
-          finish();
+          safeRevoke();
         }
       }catch(err){
-        finish();
+        safeRevoke();
         alert('PNG出力に失敗しました。文字/数式をSVGテキストに変換して再出力してください。');
         console.error(err);
       }
     };
-    img.onerror = () => { URL.revokeObjectURL(url); alert('PNG出力に失敗しました。SVGの画像化でエラーが出ました。'); };
+    img.onerror = () => { clearTimeout(timeout); safeRevoke(); alert('PNG出力に失敗しました。SVGの画像化でエラーが出ました。'); };
     img.src = url;
   };
 })();
@@ -11518,7 +11535,14 @@ renderAll();showProps();
     };
   }
 
+  // [FIX-A] getTerms: NEW_TYPES 以外は旧実装へ委譲し、既存素子の端子座標にスケールを
+  // 誤乗算しないようにする。以前はすべての素子に sz を掛けていたため、
+  // c.size を持たない既存素子の端子位置が配線位置とずれる問題があった。
+  var prevGetTermsV1 = window.getTerms || (typeof getTerms === 'function' ? getTerms : null);
   window.getTerms = getTerms = function(c){
+    if(!c || !NEW_TYPES[c.type]){
+      return prevGetTermsV1 ? prevGetTermsV1(c) : [];
+    }
     var def = DEFS[c.type];
     if(!def || !def.terms) return [];
     var sz = compSize(c);
@@ -12896,7 +12920,10 @@ renderAll();showProps();
   }
 
   function isPickerCancel(err){
-    return err && (err.name === 'AbortError' || err.name === 'SecurityError' || err.name === 'NotAllowedError');
+    // [SAVE-FIX] AbortError のみを「ユーザーがキャンセルした」として静かに扱う。
+    // SecurityError / NotAllowedError はブラウザポリシーによるブロックなので
+    // フォールバックへ落とすが、コンソールには記録する。
+    return err && err.name === 'AbortError';
   }
 
   function makeCircuitSaveDataFinal(){
@@ -13134,7 +13161,7 @@ renderAll();showProps();
       if(!isObj(c)) return;
       var type = componentType(c.type);
       if(!type) return;
-      out.push({
+      var comp = {
         id: idText(c.id, 'c', i + 1),
         type: type,
         x: finite(c.x, 0, -1000000, 1000000),
@@ -13146,7 +13173,19 @@ renderAll();showProps();
         model: text(c.model, 200),
         note: text(c.note, 500),
         color: color(c.color, DEFAULT_COLOR)
-      });
+      };
+      // [JSON-FIX] size と strokeDash を保持する。
+      // これらが落ちると NMOS2/PMOS2/Tr2 のサイズ情報が消え、
+      // ロード直後に既定値（0.45/0.5）へ強制リセットされてしまう。
+      if(c.size != null){
+        var sz = Number(c.size);
+        if(Number.isFinite(sz) && sz > 0 && sz <= 20) comp.size = sz;
+      }
+      if(c.strokeDash){
+        var dash = text(c.strokeDash, 20);
+        if(dash === 'solid' || dash === 'dashed' || dash === 'dotted') comp.strokeDash = dash;
+      }
+      out.push(comp);
     });
     return out;
   }
@@ -13192,6 +13231,8 @@ renderAll();showProps();
       if(!isObj(m)) return;
       var mode = text(m.mode, 10);
       if(mode !== 'math') mode = 'text';
+      var align = text(m.align, 10);
+      if(align !== 'left' && align !== 'right') align = 'center';
       out.push({
         id: idText(m.id, 'm', i + 1),
         src: text(m.src, MAX_TEXT_LEN),
@@ -13202,6 +13243,9 @@ renderAll();showProps();
         size: intNum(m.size, 16, 8, 72),
         bold: bool(m.bold),
         italic: bool(m.italic),
+        // [JSON-FIX] underline と align を保持する（旧バージョンでは欠落していた）。
+        underline: bool(m.underline),
+        align: align,
         w: finite(m.w, 0, 0, 2000),
         h: finite(m.h, 0, 0, 2000)
       });
@@ -14403,9 +14447,10 @@ renderAll();showProps();
   }
   function normalizeComponentSize(c){
     if(!isTarget(c)) return;
-    // 既存データや旧補正で、配置後だけ大きい/小さい状態になったものを初回に揃える。
+    // 既存データやユーザーが変更したサイズを上書きしない。
+    // size 未設定の旧データだけ既定値にする。
     if(!c.__tr2Mosfet2PlacedSizeMatched){
-      c.size = TARGET_SIZE;
+      if(c.size == null) c.size = TARGET_SIZE;
       c.__tr2Mosfet2PlacedSizeMatched = true;
     }
     if(!c.strokeDash) c.strokeDash = 'solid';
@@ -14447,12 +14492,12 @@ renderAll();showProps();
     window.addComp = addComp = function(type, x, y, opts){
       opts = opts || {};
       if(TARGET_TYPES[type]){
-        // 旧 half-on-place の 0.25 上書きを避け、ゴースト表示と同じ 0.5 を明示する。
-        opts = Object.assign({}, opts, {size: TARGET_SIZE});
+        // 明示されたサイズは尊重し、未指定時だけ既定サイズにする。
+        opts = Object.assign({}, opts, {size: opts.size == null ? TARGET_SIZE : opts.size});
       }
       var c = prevAddComp.call(this, type, x, y, opts);
       if(TARGET_TYPES[type] && c){
-        c.size = TARGET_SIZE;
+        if(c.size == null) c.size = TARGET_SIZE;
         c.__tr2Mosfet2PlacedSizeMatched = true;
         if(!c.strokeDash) c.strokeDash = 'solid';
       }
@@ -14944,7 +14989,9 @@ renderAll();showProps();
   }
   function normalizeTr2(c){
     if(!c || !TR2[c.type]) return;
-    c.size = TARGET_SIZE;
+    // サイズ変更可能にするため、既存の c.size は上書きしない。
+    // 未設定のときだけ既定値を入れる。
+    if(c.size == null) c.size = TARGET_SIZE;
     if(!c.strokeDash) c.strokeDash = 'solid';
   }
 
@@ -14957,7 +15004,7 @@ renderAll();showProps();
   if(typeof prevAddComp === 'function'){
     window.addComp = addComp = function(type, x, y, opts){
       opts = opts || {};
-      if(TR2[type]) opts = Object.assign({}, opts, {size:TARGET_SIZE, strokeDash:opts.strokeDash || 'solid'});
+      if(TR2[type]) opts = Object.assign({}, opts, {size: opts.size == null ? TARGET_SIZE : opts.size, strokeDash:opts.strokeDash || 'solid'});
       var c = prevAddComp.call(this, type, x, y, opts);
       normalizeTr2(c);
       return c;
@@ -15149,6 +15196,378 @@ renderAll();showProps();
     if(typeof showProps === 'function') showProps();
     if(typeof runChecks === 'function') runChecks();
   }catch(e){ console.error('pmos2/nmos2 internal-name final fix failed', e); }
+})();
+</script>
+
+
+
+<script id="tr2-size-editable-fix-20260617">
+// NPNtr2 / PNPTr2: プロパティの「素子サイズ」を変更できるよう、描画時の size 固定を解除する。
+(function(){
+  if(window.__tr2SizeEditableFix20260617) return;
+  window.__tr2SizeEditableFix20260617 = true;
+  var TR2 = {npntr2:true, pnptr2:true};
+  var DEFAULT_SIZE = 0.5;
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return DEFAULT_SIZE;
+    return Math.max(min, Math.min(max, v));
+  }
+  function ensureTr2Size(c){
+    if(!c || !TR2[c.type]) return;
+    if(c.size == null) c.size = DEFAULT_SIZE;
+    else c.size = clamp(c.size, 0.25, 2.4);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+  var prevSetComponentSize = window.setComponentSize;
+  if(typeof prevSetComponentSize === 'function'){
+    window.setComponentSize = setComponentSize = function(v){
+      var out = prevSetComponentSize.apply(this, arguments);
+      try{
+        var list = window.components || (typeof components !== 'undefined' ? components : []);
+        var ids = window.selectedIds || (typeof selectedIds !== 'undefined' ? selectedIds : null);
+        if(Array.isArray(list) && ids){
+          list.forEach(function(c){ if(ids.has(c.id) && TR2[c.type]) ensureTr2Size(c); });
+        }
+      }catch(e){}
+      return out;
+    };
+  }
+  try{
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(Array.isArray(list)) list.forEach(ensureTr2Size);
+  }catch(e){}
+})();
+</script>
+
+
+<script id="tr2-default-size-045-ghost-place-match-fixed-20260617">
+// NPNtr2 / PNPTr2 final size fix:
+// - New Tr2 parts default to size 0.45.
+// - Placement ghost and the placed component use the same visual scale.
+// - Existing Tr2 components with missing size keep working; user-edited sizes are not overwritten.
+// [FIX-B] scale(ratio) ラップを compSVG から削除し、ゴーストの transform で直接スケール制御。
+// [FIX-D] NMOS2/PMOS2 も同じゴースト transform ロジックで扱う (isGhostManagedType)。
+(function(){
+  if(window.__tr2DefaultSize045GhostPlaceMatchFixed20260617) return;
+  window.__tr2DefaultSize045GhostPlaceMatchFixed20260617 = true;
+
+  var TR2 = {npntr2:true, pnptr2:true};
+  var DEFAULT_SIZE = 0.45;
+  var PREVIOUS_DEFAULT_SIZE = 0.5;
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return DEFAULT_SIZE;
+    return Math.max(min, Math.min(max, v));
+  }
+  function isTr2Type(type){ return !!TR2[type]; }
+  function isTr2Comp(c){ return !!(c && TR2[c.type]); }
+  function ensureTr2Default(c){
+    if(!isTr2Comp(c)) return;
+    if(c.size == null) c.size = DEFAULT_SIZE;
+    else c.size = clamp(c.size, MIN_SIZE, MAX_SIZE);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(isTr2Type(type)){
+        opts = Object.assign({}, opts, {
+          size: opts.size == null ? DEFAULT_SIZE : opts.size,
+          strokeDash: opts.strokeDash || 'solid'
+        });
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      if(isTr2Comp(c)){
+        // Previous wrappers may still have inserted their own defaults. New placement must win.
+        if(opts.size != null) c.size = clamp(opts.size, MIN_SIZE, MAX_SIZE);
+        ensureTr2Default(c);
+      }
+      return c;
+    };
+  }
+
+  // [FIX-B] compSVG の scale(ratio) ラップを削除。
+  // 以前は compSVG が palette/ghost 用に scale(0.45/0.5)=scale(0.9) を追加していたが、
+  // mosfet2-svg-coordinate-balance-fix の compSVG がすでに defaultSizeFor() でスケールを
+  // 組み込んでいるため、二重にスケールがかかっていた。
+  // ゴーストのスケール合わせは updateGhostRotation / moveGhost の transform で直接行う。
+
+  // [FIX-D] NMOS2/PMOS2 も Tr2 と同様にゴースト transform を統一するためのヘルパー。
+  var MOS2_TYPES_GHOST = {nmos2:true, pmos2:true};
+  function isGhostManagedType(type){ return isTr2Type(type) || !!MOS2_TYPES_GHOST[type]; }
+  function applyGhostTransform(gg){
+    if(!gg) return;
+    gg.setAttribute('transform', 'translate(50,50) rotate(' + ((typeof placingRotation !== 'undefined' ? placingRotation : 0) || 0) + ') scale(' + ((typeof viewScale !== 'undefined' ? viewScale : 1) || 1) + ')');
+  }
+
+  var prevUpdateGhostRotation = window.updateGhostRotation || (typeof updateGhostRotation === 'function' ? updateGhostRotation : null);
+  if(typeof prevUpdateGhostRotation === 'function'){
+    window.updateGhostRotation = updateGhostRotation = function(){
+      var out = prevUpdateGhostRotation.apply(this, arguments);
+      try{
+        if(typeof placingType !== 'undefined' && isGhostManagedType(placingType)){
+          applyGhostTransform(document.getElementById('ghost-g'));
+        }
+      }catch(e){}
+      return out;
+    };
+  }
+
+  var prevMoveGhost = window.moveGhost || (typeof moveGhost === 'function' ? moveGhost : null);
+  if(typeof prevMoveGhost === 'function'){
+    window.moveGhost = moveGhost = function(e){
+      var out = prevMoveGhost.apply(this, arguments);
+      try{
+        if(typeof placingType !== 'undefined' && isGhostManagedType(placingType)){
+          applyGhostTransform(document.getElementById('ghost-g'));
+        }
+      }catch(err){}
+      return out;
+    };
+  }
+
+  var prevRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(typeof prevRenderAll === 'function'){
+    window.renderAll = renderAll = function(){
+      try{
+        var list = window.components || (typeof components !== 'undefined' ? components : []);
+        if(Array.isArray(list)) list.forEach(ensureTr2Default);
+      }catch(e){}
+      return prevRenderAll.apply(this, arguments);
+    };
+  }
+
+  var prevSetComponentSize = window.setComponentSize;
+  if(typeof prevSetComponentSize === 'function'){
+    window.setComponentSize = setComponentSize = function(v){
+      var out = prevSetComponentSize.apply(this, arguments);
+      try{
+        var list = window.components || (typeof components !== 'undefined' ? components : []);
+        var ids = window.selectedIds || (typeof selectedIds !== 'undefined' ? selectedIds : null);
+        if(Array.isArray(list) && ids){
+          list.forEach(function(c){ if(ids.has(c.id) && isTr2Comp(c)) ensureTr2Default(c); });
+        }
+      }catch(e){}
+      return out;
+    };
+  }
+
+  try{
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(Array.isArray(list)) list.forEach(ensureTr2Default);
+    if(typeof refreshPaletteSymbols === 'function') refreshPaletteSymbols();
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('TR2 default size 0.45 final fix failed', e); }
+})();
+</script>
+
+
+<script id="tr2-size-below-045-final-fix-fixed-20260617">
+// NPNtr2 / PNPTr2: 0.45未満の素子サイズも反映する最終修正。
+// [FIX-C] reconnectFromOldTerms の座標判定許容幅を 3→2 に縮小(GRID=5 の半分未満)。
+(function(){
+  if(window.__tr2SizeBelow045FinalFixFixed20260617) return;
+  window.__tr2SizeBelow045FinalFixFixed20260617 = true;
+
+  var TR2 = {npntr2:true, pnptr2:true};
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+
+  function clamp(v){
+    v = Number(v);
+    if(!Number.isFinite(v)) return 0.45;
+    return Math.max(MIN_SIZE, Math.min(MAX_SIZE, v));
+  }
+  function isCompId(id){
+    return typeof id === 'string' && !id.startsWith('math:') && !id.startsWith('shape:') && !id.startsWith('junction:') && !id.startsWith('wire:');
+  }
+  function getSelectedComponents(){
+    var ids = window.selectedIds || (typeof selectedIds !== 'undefined' ? selectedIds : null);
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(!ids || !Array.isArray(list)) return [];
+    return Array.from(ids).filter(isCompId).map(function(id){
+      return list.find(function(c){ return c.id === id; });
+    }).filter(Boolean);
+  }
+  function reconnectFromOldTerms(comps, oldTerms){
+    if(typeof getTerms !== 'function') return;
+    var wireList = window.wires || (typeof wires !== 'undefined' ? wires : []);
+    if(!Array.isArray(wireList)) return;
+    comps.forEach(function(c){
+      var oldT = oldTerms[c.id] || [];
+      var newT = getTerms(c);
+      oldT.forEach(function(ot){
+        var nt = newT.find(function(t){ return t.id === ot.id; });
+        if(!nt) return;
+        // [FIX-C] 許容幅を 3 → 2 に縮小。グリッド間隔(GRID=5)の半分(2.5)より小さくすることで、
+        // 隣接する無関係な配線を誤接続するリスクを排除する。
+        wireList.forEach(function(w){
+          if(Math.abs(w.x1 - ot.x) < 2 && Math.abs(w.y1 - ot.y) < 2){ w.x1 = nt.x; w.y1 = nt.y; }
+          if(Math.abs(w.x2 - ot.x) < 2 && Math.abs(w.y2 - ot.y) < 2){ w.x2 = nt.x; w.y2 = nt.y; }
+        });
+      });
+    });
+  }
+  function fixSizeInputs(){
+    try{
+      var comps = getSelectedComponents();
+      if(!comps.length || !comps.some(function(c){ return TR2[c.type]; })) return;
+      var inputs = document.querySelectorAll('#prop-body input[type="number"]');
+      inputs.forEach(function(input){ input.setAttribute('min', String(MIN_SIZE)); });
+      if(comps.length === 1 && TR2[comps[0].type] && inputs[0]) inputs[0].value = String(clamp(comps[0].size));
+    }catch(e){}
+  }
+
+  var prevSetComponentSize = window.setComponentSize || (typeof setComponentSize === 'function' ? setComponentSize : null);
+  window.setComponentSize = setComponentSize = function(v){
+    var target = clamp(v);
+    var comps = getSelectedComponents();
+    var tr2Comps = comps.filter(function(c){ return TR2[c.type]; });
+
+    // 非Tr2も含む通常処理は既存ロジックを先に通す。ただし既存ロジックは0.45未満を丸める。
+    var out;
+    if(typeof prevSetComponentSize === 'function') out = prevSetComponentSize.apply(this, arguments);
+
+    if(!tr2Comps.length) return out;
+
+    var needsChange = tr2Comps.some(function(c){ return Math.abs((Number(c.size) || 0.45) - target) > 0.001; });
+    if(!needsChange){
+      fixSizeInputs();
+      return out;
+    }
+
+    try{
+      if(typeof saveState === 'function') saveState();
+      var oldTerms = {};
+      if(typeof getTerms === 'function'){
+        tr2Comps.forEach(function(c){ oldTerms[c.id] = getTerms(c).map(function(t){ return Object.assign({}, t); }); });
+      }
+      tr2Comps.forEach(function(c){
+        c.size = target;
+        if(!c.strokeDash) c.strokeDash = 'solid';
+      });
+      reconnectFromOldTerms(tr2Comps, oldTerms);
+      if(typeof renderAll === 'function') renderAll();
+      if(typeof runChecks === 'function') runChecks();
+      fixSizeInputs();
+    }catch(e){ console.error('TR2 size below 0.45 final fix failed', e); }
+    return out;
+  };
+
+  var prevShowProps = window.showProps || (typeof showProps === 'function' ? showProps : null);
+  if(typeof prevShowProps === 'function'){
+    window.showProps = showProps = function(){
+      var out = prevShowProps.apply(this, arguments);
+      fixSizeInputs();
+      return out;
+    };
+  }
+
+  try{
+    fixSizeInputs();
+    if(typeof showProps === 'function') showProps();
+    if(typeof renderAll === 'function') renderAll();
+  }catch(e){ console.error('TR2 size below 0.45 startup refresh failed', e); }
+})();
+</script>
+
+
+
+<script id="nmos2-pmos2-ghost-size-match-fixed-20260617">
+// NMOS2 / PMOS2: 配置後の実サイズを、パレット選択中のゴースト表示サイズと一致させる最終補正。
+// [FIX-C'] shouldDefault が常に false になる問題を修正: 先行 addComp ラップが opts.size を
+//           書き換えた後でもユーザーの intent を __callerHadNoSize フラグで追跡する。
+// [FIX-C''] renderAll ループで全素子を走査していた非効率を改善: MOS2 以外は即スキップ。
+(function(){
+  if(window.__nmos2Pmos2GhostSizeMatchFixed20260617) return;
+  window.__nmos2Pmos2GhostSizeMatchFixed20260617 = true;
+
+  var MOS2_TYPES = {nmos2:true, pmos2:true};
+  var GHOST_MATCH_SIZE = 0.5;
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+
+  function isMos2Type(type){ return !!MOS2_TYPES[type]; }
+  function isMos2Comp(c){ return !!(c && MOS2_TYPES[c.type]); }
+  function clampSize(v){
+    v = Number(v);
+    if(!Number.isFinite(v)) return GHOST_MATCH_SIZE;
+    return Math.max(MIN_SIZE, Math.min(MAX_SIZE, v));
+  }
+  function ensureMos2PlacedSize(c, forceDefault){
+    if(!isMos2Comp(c)) return;
+    if(forceDefault || c.size == null){
+      c.size = GHOST_MATCH_SIZE;
+      c.__nmos2Pmos2GhostSizeMatched = true;
+    }else{
+      c.size = clampSize(c.size);
+    }
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      // [FIX-C'] shouldDefault の判定を、呼び出し元がサイズを指定したかどうかに基づく。
+      // 先行パッチ群が opts.size を 0.45 等に書き換えた後でここへ到達するため、
+      // opts.size == null では常に false になる。代わりに __callerHadNoSize フラグを使う。
+      // ユーザーがサイズを明示的に渡さなかった場合のみ GHOST_MATCH_SIZE を適用する。
+      var callerHadNoSize = isMos2Type(type) && (opts.size == null || opts.__callerHadNoSize === true);
+      if(isMos2Type(type)){
+        opts = Object.assign({}, opts, {
+          size: callerHadNoSize ? GHOST_MATCH_SIZE : clampSize(opts.size),
+          strokeDash: opts.strokeDash || 'solid',
+          __callerHadNoSize: undefined
+        });
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      if(isMos2Comp(c)) ensureMos2PlacedSize(c, callerHadNoSize);
+      return c;
+    };
+  }
+
+  var prevRenderAll = window.renderAll || (typeof renderAll === 'function' ? renderAll : null);
+  if(typeof prevRenderAll === 'function'){
+    window.renderAll = renderAll = function(){
+      try{
+        var list = window.components || (typeof components !== 'undefined' ? components : []);
+        if(Array.isArray(list)){
+          list.forEach(function(c){
+            // [FIX-C''] 既にサイズ確定済みのものはスキップしてパフォーマンスを改善。
+            // c.__nmos2Pmos2GhostSizeMatched が立っていても size が null になった場合だけ再設定。
+            if(!isMos2Comp(c)) return;
+            ensureMos2PlacedSize(c, false);
+          });
+        }
+      }catch(e){}
+      return prevRenderAll.apply(this, arguments);
+    };
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      ensureMos2PlacedSize(c, false);
+      return prevComponentToSVG.call(this, c);
+    };
+  }
+
+  try{
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(Array.isArray(list)) list.forEach(function(c){ ensureMos2PlacedSize(c, false); });
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('NMOS2/PMOS2 ghost size match final fix failed', e); }
 })();
 </script>
 
