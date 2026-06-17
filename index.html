@@ -14863,5 +14863,251 @@ renderAll();showProps();
 })();
 </script>
 
+
+<script id="tr2-svg-data-grid-aligned-final-20260617c">
+// NPNtr2 / PNPTr2: 添付SVGの座標関係を基準に、端子が5pxグリッドへ乗るよう最終補正。
+(function(){
+  if(window.__tr2SvgDataGridAlignedFinal20260617c) return;
+  window.__tr2SvgDataGridAlignedFinal20260617c = true;
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var TARGET_SIZE = 0.5;
+  var TR2 = {npntr2:true, pnptr2:true};
+  var TERMINALS = {
+    npntr2: [{x:-50,y:0,id:'B'},{x:40,y:-50,id:'C'},{x:50,y:40,id:'E'}],
+    pnptr2: [{x:-50,y:0,id:'B'},{x:50,y:-50,id:'E'},{x:60,y:40,id:'C'}]
+  };
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function colorOf(c){ return esc((c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR); }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : TARGET_SIZE, 0.25, 2.4); }
+  function dashArray(c){
+    var v = c && c.strokeDash;
+    if(v === 'dotted') return '1 4';
+    if(v === 'dashed') return '8 4';
+    return '';
+  }
+  function strokeAttrs(c){
+    var dash = dashArray(c);
+    return 'stroke="' + colorOf(c) + '" stroke-width="' + (lineWidth() / compSize(c)) + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+  function polyAttrs(c){
+    var dash = dashArray(c), col = colorOf(c), lw = lineWidth() / compSize(c);
+    return 'fill="' + col + '" stroke="' + col + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+
+  // 添付 NPNTr2(13).svg の実座標を、ベース縦線を原点に正規化。
+  // 端子だけは size=0.5 後に5pxグリッドへ乗るよう近傍の10px座標へ補正。
+  function npnSvg(c){
+    var s = strokeAttrs(c), p = polyAttrs(c);
+    return ''
+      + '<line x1="-50" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-40" x2="0" y2="30" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-15" x2="40" y2="-50" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="5" x2="50" y2="40" ' + s + ' fill="none"/>'
+      + '<polygon points="38.5,17.9 55.6,43.3 24.7,34.2" ' + p + '/>';
+  }
+
+  // 添付 PNPTr2(13).svg の実座標を、ベース縦線を原点に正規化。
+  // PNPの三角形もSVG由来の向き・相対位置で、内向きになるよう保持。
+  function pnpSvg(c){
+    var s = strokeAttrs(c), p = polyAttrs(c);
+    return ''
+      + '<line x1="-50" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-40" x2="0" y2="30" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-15" x2="50" y2="-50" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="5" x2="60" y2="40" ' + s + ' fill="none"/>'
+      + '<polygon points="18.2,27.1 -1.2,0.8 29.3,8.3" ' + p + '/>';
+  }
+
+  function tr2Symbol(c){
+    if(!c) return '';
+    if(c.type === 'npntr2') return npnSvg(c);
+    if(c.type === 'pnptr2') return pnpSvg(c);
+    return null;
+  }
+  function normalizeTr2(c){
+    if(!c || !TR2[c.type]) return;
+    c.size = TARGET_SIZE;
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+
+  Object.assign(DEFS, {
+    npntr2: {name:'NPNtr2', w:100, h:90, terms:TERMINALS.npntr2, defVal:'', pre:'Q'},
+    pnptr2: {name:'PNPTr2', w:110, h:90, terms:TERMINALS.pnptr2, defVal:'', pre:'Q'}
+  });
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(TR2[type]) opts = Object.assign({}, opts, {size:TARGET_SIZE, strokeDash:opts.strokeDash || 'solid'});
+      var c = prevAddComp.call(this, type, x, y, opts);
+      normalizeTr2(c);
+      return c;
+    };
+  }
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(TR2[type]){
+      var c = {type:type, color:color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:TARGET_SIZE, strokeDash:'solid'};
+      return '<g transform="scale(' + TARGET_SIZE + ')">' + tr2Symbol(c) + '</g>';
+    }
+    return prevCompSVG ? prevCompSVG.call(this, type, color) : '';
+  };
+
+  var prevGetTerms = window.getTerms || (typeof getTerms === 'function' ? getTerms : null);
+  window.getTerms = getTerms = function(c){
+    if(c && TR2[c.type]){
+      normalizeTr2(c);
+      var terms = TERMINALS[c.type] || [];
+      var sz = compSize(c);
+      return terms.map(function(t){
+        var tx = (c.flip ? -t.x : t.x) * sz;
+        var ty = t.y * sz;
+        var a = (c.rotation || 0) * Math.PI / 180;
+        var rx = tx * Math.cos(a) - ty * Math.sin(a);
+        var ry = tx * Math.sin(a) + ty * Math.cos(a);
+        return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+      });
+    }
+    return prevGetTerms ? prevGetTerms.call(this, c) : [];
+  };
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  window.renderComp = renderComp = function(c){
+    if(!c || !TR2[c.type]) return prevRenderComp ? prevRenderComp.call(this, c) : document.createElementNS(SVGNS, 'g');
+    normalizeTr2(c);
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var sz = compSize(c), sx = c.flip ? -sz : sz;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')');
+    symbolG.innerHTML = tr2Symbol(c);
+
+    if(selectedIds.has(c.id)){
+      var def = DEFS[c.type] || {w:100,h:90};
+      var hw = Math.max((def.w || 100) / 2, 25) + 14;
+      var hh = Math.max((def.h || 90) / 2, 15) + 14;
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (DEFS[c.type].terms || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((DEFS[c.type].h || 90) / 2 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((DEFS[c.type].h || 90) / 2 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(!c || !TR2[c.type]) return prevComponentToSVG ? prevComponentToSVG.call(this, c) : '';
+    normalizeTr2(c);
+    var sz = compSize(c), sx = c.flip ? -sz : sz;
+    var labels = '';
+    if(c.ref) labels += '<text x="0" y="' + (-((DEFS[c.type].h || 90) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="Segoe UI,Arial,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) labels += '<text x="0" y="' + (((DEFS[c.type].h || 90) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="Segoe UI,Arial,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + tr2Symbol(c) + '</g>' + labels + '</g>';
+  };
+
+  function setPaletteIcon(id, type, viewBox){
+    var item = document.getElementById(id);
+    if(!item) return;
+    var old = item.querySelector('svg.pal-icon');
+    if(!old) return;
+    old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg>';
+  }
+
+  try{
+    (window.components || components || []).forEach(normalizeTr2);
+    setPaletteIcon('pal-npntr2', 'npntr2', '-30 -26 58 50');
+    setPaletteIcon('pal-pnptr2', 'pnptr2', '-30 -26 60 50');
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('TR2 SVG data grid-aligned final patch failed', e); }
+})();
+</script>
+
 </body>
 </html>
