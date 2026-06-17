@@ -10671,6 +10671,9 @@ renderAll();showProps();
           line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+nodes[2]+' '+val; break;
         case 'pmos':
           line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+nodes[2]+' '+val; break;
+        case 'pmos2': // terms: G, D, S, B -> M name D G S B model
+        case 'nmos2':
+          line = ref+' '+nodes[1]+' '+nodes[0]+' '+nodes[2]+' '+nodes[3]+' '+val; break;
         case 'opamp':
           // + - OUT V+ V-
           line = ref+' '+nodes[2]+' '+nodes[0]+' '+nodes[1]+' '+nodes[3]+' '+nodes[4]+' '+val; break;
@@ -11386,7 +11389,7 @@ renderAll();showProps();
 
 
 <script id="transistor-mosfet-2-symbols-final-patch">
-// 追加素子: PMOS2 / NMOS2 / NPNtr2 / PNPTr2
+// 追加素子: NMOS2 / PMOS2 / NPNtr2 / PNPTr2
 // 添付SVGの位置関係を保ちながら、既存素子と同じ線幅・サイズ・点線・リサイズ処理に統合する。
 (function(){
   if(window.__transistorMosfet2SymbolsFinalPatch) return;
@@ -11396,7 +11399,7 @@ renderAll();showProps();
   var DEFAULT_COLOR = '#6b7280';
   var MIN_SIZE = 0.45;
   var MAX_SIZE = 2.4;
-  var NEW_TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
+  var NEW_TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
 
   function clamp(v, min, max){
     v = Number(v);
@@ -11447,7 +11450,7 @@ renderAll();showProps();
         + '<line x1="34" y1="32" x2="42" y2="32" ' + s + ' fill="none"/>'
         + '<polygon points="1,24 -12,3 14,9" fill="' + f + '"/>';
     }
-    if(type === 'nmos2'){
+    if(type === 'pmos2'){
       return ''
         + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
         + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
@@ -11465,7 +11468,7 @@ renderAll();showProps();
         + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
         + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
     }
-    if(type === 'pmos2'){
+    if(type === 'nmos2'){
       return ''
         + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
         + '<line x1="-20" y1="-28" x2="-20" y2="28" ' + s + ' fill="none"/>'
@@ -11488,8 +11491,8 @@ renderAll();showProps();
 
   // 新規タイプを既存定義へ追加。既存の pmos/nmos/npn/pnp は変更しない。
   Object.assign(DEFS, {
-    pmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
-    nmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:76, h:70, terms:[{x:-32,y:0,id:'B'},{x:36,y:-32,id:'C'},{x:38,y:32,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:82, h:70, terms:[{x:-32,y:0,id:'B'},{x:40,y:-32,id:'E'},{x:42,y:32,id:'C'}], defVal:'', pre:'Q'}
   });
@@ -11711,9 +11714,9 @@ renderAll();showProps();
     div.innerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg><span class="pal-name">' + name + '</span>';
     after.insertAdjacentElement('afterend', div);
   }
-  addPaletteItem('pal-pmos', 'pal-pmos2', 'pmos2', 'NMOS2', '-46 -48 96 96');
-  addPaletteItem('pal-pmos2', 'pal-nmos2', 'nmos2', 'PMOS2', '-46 -48 96 96');
-  addPaletteItem('pal-nmos2', 'pal-npntr2', 'npntr2', 'NPNtr2', '-42 -42 90 84');
+  addPaletteItem('pal-pmos', 'pal-nmos2', 'nmos2', 'NMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-nmos2', 'pal-pmos2', 'pmos2', 'PMOS2', '-46 -48 96 96');
+  addPaletteItem('pal-pmos2', 'pal-npntr2', 'npntr2', 'NPNtr2', '-42 -42 90 84');
   addPaletteItem('pal-npntr2', 'pal-pnptr2', 'pnptr2', 'PNPTr2', '-42 -42 96 84');
 
   components.forEach(function(c){
@@ -11739,10 +11742,10 @@ renderAll();showProps();
 
   var SVGNS = 'http://www.w3.org/2000/svg';
   var DEFAULT_COLOR = '#6b7280';
-  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
-  var MOS_TYPES = {pmos2:true, nmos2:true};
+  var TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {nmos2:true, pmos2:true};
   var TR2_TYPES = {npntr2:true, pnptr2:true};
-  var DEFAULT_SIZE = {nmos2:0.55, pmos2:0.55, npntr2:0.5, pnptr2:0.5};
+  var DEFAULT_SIZE = {pmos2:0.55, nmos2:0.55, npntr2:0.5, pnptr2:0.5};
   var MIN_SIZE = 0.25;
   var MAX_SIZE = 2.4;
 
@@ -11778,7 +11781,7 @@ renderAll();showProps();
   // SVG内 g transform を適用済みの座標を raw として保持し、配置関係をここで一括計算する。
   var MOS_COORD_SCALE = 0.8;
   var MOS_RAW = {
-    nmos2: {
+    pmos2: {
       center: [82.3797, 100.2030],
       lines: [
         [[50.5,65.5],[50.5,131.906]],
@@ -11804,7 +11807,7 @@ renderAll();showProps();
       terms: {G:[2.5004,132.5001], D:[110.5,1.5], S:[119.5,198.906], B:[162.259,115.5]},
       bbox: [2.5004,1.5,162.259,198.906]
     },
-    pmos2: {
+    nmos2: {
       center: [81.0002, 99.2030],
       lines: [
         [[50.5,65.5],[50.5,131.906]],
@@ -11881,15 +11884,15 @@ renderAll();showProps();
   }
   function symbolSVG(c){
     if(!c) return '';
-    if(c.type === 'nmos2' || c.type === 'pmos2') return mosSvgFromRaw(c.type, c);
+    if(c.type === 'pmos2' || c.type === 'nmos2') return mosSvgFromRaw(c.type, c);
     if(c.type === 'npntr2') return npnTr2Svg(c);
     if(c.type === 'pnptr2') return pnpTr2Svg(c);
     return null;
   }
 
   if(typeof DEFS !== 'undefined'){
-    DEFS.nmos2 = mosDef('nmos2', 'PMOS2');
-    DEFS.pmos2 = mosDef('pmos2', 'NMOS2');
+    DEFS.pmos2 = mosDef('pmos2', 'PMOS2');
+    DEFS.nmos2 = mosDef('nmos2', 'NMOS2');
     DEFS.npntr2 = {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'};
     DEFS.pnptr2 = {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'};
   }
@@ -12066,8 +12069,8 @@ renderAll();showProps();
   }
   setPaletteIcon('pal-npntr2', 'npntr2', '-40 -42 84 78');
   setPaletteIcon('pal-pnptr2', 'pnptr2', '-40 -42 88 78');
-  setPaletteIcon('pal-nmos2', 'nmos2', '-72 -86 150 178');
   setPaletteIcon('pal-pmos2', 'pmos2', '-72 -86 150 178');
+  setPaletteIcon('pal-nmos2', 'nmos2', '-72 -86 150 178');
 
   try{
     if(typeof components !== 'undefined'){
@@ -13752,8 +13755,8 @@ renderAll();showProps();
   var DEFAULT_COLOR = '#6b7280';
   var MIN_SIZE = 0.35;
   var MAX_SIZE = 2.4;
-  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
-  var MOS_TYPES = {pmos2:true, nmos2:true};
+  var TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {nmos2:true, pmos2:true};
 
   function clamp(v, min, max){
     v = Number(v);
@@ -13801,7 +13804,7 @@ renderAll();showProps();
       + '<line x1="0" y1="3.7" x2="37.1" y2="25.2" ' + s + ' fill="none"/>'
       + '<polygon points="11.2,16.9 -0.8,1.8 18.1,5.7" fill="' + f + '"/>';
   }
-  function nmos2Svg(c){
+  function pmos2Svg(c){
     var s = st(c), f = fill(c);
     return ''
       + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
@@ -13820,7 +13823,7 @@ renderAll();showProps();
       + '<line x1="31" y1="-25" x2="31" y2="25" ' + s + ' fill="none"/>'
       + '<line x1="31" y1="0" x2="44" y2="0" ' + s + ' fill="none"/>';
   }
-  function pmos2Svg(c){
+  function nmos2Svg(c){
     var s = st(c), f = fill(c);
     return ''
       + '<line x1="-36" y1="0" x2="-20" y2="0" ' + s + ' fill="none"/>'
@@ -13843,14 +13846,14 @@ renderAll();showProps();
     if(!c) return '';
     if(c.type === 'npntr2') return npnTr2Svg(c);
     if(c.type === 'pnptr2') return pnpTr2Svg(c);
-    if(c.type === 'nmos2') return nmos2Svg(c);
     if(c.type === 'pmos2') return pmos2Svg(c);
+    if(c.type === 'nmos2') return nmos2Svg(c);
     return null;
   }
 
   Object.assign(DEFS, {
-    pmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
-    nmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'NMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'PMOS2',  w:80, h:90, terms:[{x:-36,y:0,id:'G'},{x:30,y:-42,id:'D'},{x:33,y:42,id:'S'},{x:44,y:0,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:72, h:64, terms:[{x:-32,y:0,id:'B'},{x:27.3,y:-33.8,id:'C'},{x:31,y:26.4,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:76, h:64, terms:[{x:-32,y:0,id:'B'},{x:32.7,y:-34.7,id:'E'},{x:37.1,y:25.2,id:'C'}], defVal:'', pre:'Q'}
   });
@@ -14025,8 +14028,8 @@ renderAll();showProps();
   }
   setPaletteIcon('pal-npntr2', 'npntr2', '-38 -40 78 74');
   setPaletteIcon('pal-pnptr2', 'pnptr2', '-38 -40 84 74');
-  setPaletteIcon('pal-nmos2', 'nmos2', '-48 -48 100 96');
   setPaletteIcon('pal-pmos2', 'pmos2', '-48 -48 100 96');
+  setPaletteIcon('pal-nmos2', 'nmos2', '-48 -48 100 96');
 
   try{
     components.forEach(function(c){
@@ -14054,10 +14057,10 @@ renderAll();showProps();
   var DEFAULT_COLOR = '#6b7280';
   var MIN_SIZE = 0.25;
   var MAX_SIZE = 2.4;
-  var TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
-  var MOS_TYPES = {pmos2:true, nmos2:true};
+  var TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var MOS_TYPES = {nmos2:true, pmos2:true};
   var TR2_TYPES = {npntr2:true, pnptr2:true};
-  var DEFAULT_SIZE = {nmos2:0.5, pmos2:0.5, npntr2:0.5, pnptr2:0.5};
+  var DEFAULT_SIZE = {pmos2:0.5, nmos2:0.5, npntr2:0.5, pnptr2:0.5};
 
   function clamp(v, min, max){
     v = Number(v);
@@ -14093,7 +14096,7 @@ renderAll();showProps();
   function polygon(points, c){ return '<polygon points="' + points + '" fill="' + f(c) + '" stroke="' + f(c) + '" stroke-width="' + (lineWidth() / compSize(c)) + '"' + styleAttrs(c) + '/>'; }
 
   // nmos(4).svg: group translate(-578,-351) と各 path matrix を適用後、bbox 中心(82.3797,100.203)を原点、scale=0.55で正規化。
-  var NMOS2_ITEMS = [
+  var PMOS2_ITEMS = [
     ['line','-20,-20 -20,20'],
     ['line','-20,20 -40,20'],
     ['line','-10,-10 -10,-30'],
@@ -14114,7 +14117,7 @@ renderAll();showProps();
   ];
 
   // pmos(4).svg: group translate(-311,-349) と各 path matrix を適用後、bbox 中心(81.0002,99.203)を原点、scale=0.56で正規化。
-  var PMOS2_ITEMS = [
+  var NMOS2_ITEMS = [
     ['line','-20,-20 -20,20'],
     ['line','-20,20 -40,20'],
     ['line','-10,-10 -10,-30'],
@@ -14161,16 +14164,16 @@ renderAll();showProps();
   }
   function symbolSVG(c){
     if(!c) return '';
-    if(c.type === 'nmos2') return mosSvgFromItems(NMOS2_ITEMS, c);
     if(c.type === 'pmos2') return mosSvgFromItems(PMOS2_ITEMS, c);
+    if(c.type === 'nmos2') return mosSvgFromItems(NMOS2_ITEMS, c);
     if(c.type === 'npntr2') return npnTr2Svg(c);
     if(c.type === 'pnptr2') return pnpTr2Svg(c);
     return null;
   }
 
   Object.assign(DEFS, {
-    nmos2:  {name:'PMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:10,id:'B'}], defVal:'', pre:'M'},
-    pmos2:  {name:'NMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:-10,id:'B'}], defVal:'', pre:'M'},
+    pmos2:  {name:'PMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:10,id:'B'}], defVal:'', pre:'M'},
+    nmos2:  {name:'NMOS2',  w:80, h:100, terms:[{x:-40,y:20,id:'G'},{x:20,y:-50,id:'D'},{x:20,y:50,id:'S'},{x:40,y:-10,id:'B'}], defVal:'', pre:'M'},
     npntr2: {name:'NPNtr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'C'},{x:30,y:30,id:'E'}], defVal:'', pre:'Q'},
     pnptr2: {name:'PNPTr2', w:60, h:60, terms:[{x:-30,y:0,id:'B'},{x:30,y:-30,id:'E'},{x:30,y:30,id:'C'}], defVal:'', pre:'Q'}
   });
@@ -14327,8 +14330,8 @@ renderAll();showProps();
     old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + window.compSVG(type, '#333') + '</svg>';
   }
 
-  setPaletteIcon('pal-nmos2', 'nmos2', '-27 -34 56 70');
   setPaletteIcon('pal-pmos2', 'pmos2', '-27 -34 56 70');
+  setPaletteIcon('pal-nmos2', 'nmos2', '-27 -34 56 70');
   setPaletteIcon('pal-npntr2', 'npntr2', '-20 -20 42 42');
   setPaletteIcon('pal-pnptr2', 'pnptr2', '-20 -20 44 42');
 
@@ -14346,14 +14349,14 @@ renderAll();showProps();
 
 
 <script id="tr2-mosfet2-half-size-on-place-final-20260617">
-// NPNtr2 / PNPTr2 / NMOS2 / PMOS2 は、パレット選択中のゴースト表示はそのままに、
+// NPNtr2 / PNPTr2 / PMOS2 / NMOS2 は、パレット選択中のゴースト表示はそのままに、
 // キャンバスへ配置確定した瞬間だけ 1/2 サイズで作成する。
 // これにより、配置後だけ他素子の約2倍に見える問題を補正する。
 (function(){
   if(window.__tr2Mosfet2HalfSizeOnPlaceFinal20260617) return;
   window.__tr2Mosfet2HalfSizeOnPlaceFinal20260617 = true;
 
-  var HALF_ON_PLACE_TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var HALF_ON_PLACE_TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
   var PLACE_SIZE = 0.25; // 既存の既定 0.5 に対して、配置時だけさらに 1/2。
 
   var prevAddCompHalfOnPlace = window.addComp || (typeof addComp === 'function' ? addComp : null);
@@ -14373,14 +14376,14 @@ renderAll();showProps();
 
 <script id="tr2-mosfet2-size-linewidth-place-match-final-20260617b">
 // 最終補正:
-// - NPNtr2 / PNPTr2 / NMOS2 / PMOS2 は、パレット選択中のゴーストと同じ倍率で配置する。
+// - NPNtr2 / PNPTr2 / PMOS2 / NMOS2 は、パレット選択中のゴーストと同じ倍率で配置する。
 // - 旧補正で 0.25 へ小さくなったもの、または size 未指定/1 のものも、初回だけ 0.5 に正規化する。
 // - 線幅はスケール後の見た目が他素子と同じになるよう、内部 stroke-width を size で割って補正する。
 (function(){
   if(window.__tr2Mosfet2SizeLinewidthPlaceMatchFinal20260617b) return;
   window.__tr2Mosfet2SizeLinewidthPlaceMatchFinal20260617b = true;
 
-  var TARGET_TYPES = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var TARGET_TYPES = {pmos2:true, nmos2:true, npntr2:true, pnptr2:true};
   var TARGET_SIZE = 0.5; // compSVG(type) のゴースト表示倍率と一致させる。
   var MIN_LW = 0.5;
   var MAX_LW = 10;
@@ -14742,7 +14745,7 @@ renderAll();showProps();
 
   var ARROWHEAD_TYPES = {
     npn:true, pnp:true, nmos:true, pmos:true,
-    npntr2:true, pnptr2:true, nmos2:true, pmos2:true
+    npntr2:true, pnptr2:true, pmos2:true, nmos2:true
   };
 
   function isFilledPolygon(el){
@@ -15106,6 +15109,46 @@ renderAll();showProps();
     if(typeof showProps === 'function') showProps();
     if(typeof runChecks === 'function') runChecks();
   }catch(e){ console.error('TR2 SVG data grid-aligned final patch failed', e); }
+})();
+</script>
+
+
+
+<script id="pmos2-nmos2-internal-name-fix-20260617">
+// pmos2 / nmos2 internal-name final fix:
+// - Keep each symbol implementation attached to its own type.
+// - Ensure editor properties, save/load data, and SPICE export use pmos2=PMOS2, nmos2=NMOS2.
+(function(){
+  if(window.__pmos2Pmos2InternalNameFix20260617) return;
+  window.__pmos2Pmos2InternalNameFix20260617 = true;
+
+  function fixDef(type, name){
+    if(typeof DEFS === 'undefined' || !DEFS[type]) return;
+    DEFS[type].name = name;
+    DEFS[type].pre = 'M';
+  }
+  fixDef('pmos2', 'PMOS2');
+  fixDef('nmos2', 'NMOS2');
+
+  function fixPalette(id, type, label){
+    var item = document.getElementById(id);
+    if(!item) return;
+    item.setAttribute('onclick', "startPlace('" + type + "')");
+    var name = item.querySelector('.pal-name');
+    if(name) name.textContent = label;
+    if(typeof window.compSVG === 'function'){
+      var svg = item.querySelector('svg.pal-icon');
+      if(svg) svg.innerHTML = window.compSVG(type, '#333');
+    }
+  }
+  fixPalette('pal-pmos2', 'pmos2', 'PMOS2');
+  fixPalette('pal-nmos2', 'nmos2', 'NMOS2');
+
+  try{
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('pmos2/nmos2 internal-name final fix failed', e); }
 })();
 </script>
 
