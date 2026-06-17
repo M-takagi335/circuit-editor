@@ -15655,5 +15655,345 @@ renderAll();showProps();
 })();
 </script>
 
+
+
+<script id="tr2-mos2-size-input-grid-final-20260618">
+// Final patch 2026-06-18:
+// - NPNtr2 / PNPTr2 default size is 0.8x of the previous default: 0.5 -> 0.4.
+// - The placing ghost and the placed component use the same default scale.
+// - Default TR2 terminal endpoints are on the 5px grid, so wiring endpoints snap cleanly.
+// - Size edits for NMOS2 / PMOS2 / NPNtr2 / PNPTr2 do not rebuild the property panel while typing.
+// - Component size changes keep the apparent circuit line width unchanged; only the toolbar line-width control changes it.
+(function(){
+  if(window.__tr2Mos2SizeInputGridFinal20260618) return;
+  window.__tr2Mos2SizeInputGridFinal20260618 = true;
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var DEFAULT_COLOR = '#6b7280';
+  var TARGET = {nmos2:true, pmos2:true, npntr2:true, pnptr2:true};
+  var TR2 = {npntr2:true, pnptr2:true};
+  var MOS2 = {nmos2:true, pmos2:true};
+  var DEFAULT_SIZE = {nmos2:0.5, pmos2:0.5, npntr2:0.4, pnptr2:0.4};
+  var MIN_SIZE = 0.25;
+  var MAX_SIZE = 2.4;
+  var TR2_TERMS = {
+    npntr2:[{x:-50,y:0,id:'B'},{x:50,y:-50,id:'C'},{x:50,y:50,id:'E'}],
+    pnptr2:[{x:-50,y:0,id:'B'},{x:50,y:-50,id:'E'},{x:50,y:50,id:'C'}]
+  };
+
+  function clamp(v, fallback){
+    v = Number(v);
+    if(!Number.isFinite(v)) v = fallback;
+    return Math.max(MIN_SIZE, Math.min(MAX_SIZE, v));
+  }
+  function defaultSize(type){ return DEFAULT_SIZE[type] || 1; }
+  function isTargetType(type){ return !!TARGET[type]; }
+  function isTargetComp(c){ return !!(c && TARGET[c.type]); }
+  function isTr2Comp(c){ return !!(c && TR2[c.type]); }
+  function sizeOf(c){ return clamp(c && c.size != null ? c.size : defaultSize(c && c.type), defaultSize(c && c.type)); }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return Math.max(0.5, Math.min(10, Number(window.getCircuitLineWidth()) || 1.6));
+    return Math.max(0.5, Math.min(10, Number(window.circuitLineWidth) || 1.6));
+  }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function colorOf(c){ return esc((c && c.color) || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR); }
+  function dashArray(c){
+    var v = c && c.strokeDash;
+    if(v === 'dotted') return '1 4';
+    if(v === 'dashed') return '8 4';
+    return '';
+  }
+  function strokeAttrs(c){
+    var dash = dashArray(c);
+    return 'stroke="' + colorOf(c) + '" stroke-width="' + (lineWidth() / sizeOf(c)) + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+  function fillAttrs(c){
+    var col = colorOf(c), dash = dashArray(c);
+    return 'fill="' + col + '" stroke="' + col + '" stroke-width="' + (lineWidth() / sizeOf(c)) + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+  function normalize(c, forceDefault){
+    if(!isTargetComp(c)) return;
+    if(forceDefault || c.size == null) c.size = defaultSize(c.type);
+    else c.size = clamp(c.size, defaultSize(c.type));
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+
+  function npnTr2Svg(c){
+    var s = strokeAttrs(c), p = fillAttrs(c);
+    return ''
+      + '<line x1="-50" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-40" x2="0" y2="40" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-14" x2="50" y2="-50" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="12" x2="50" y2="50" ' + s + ' fill="none"/>'
+      + '<polygon points="39,34 52,51 31,44" ' + p + '/>';
+  }
+  function pnpTr2Svg(c){
+    var s = strokeAttrs(c), p = fillAttrs(c);
+    return ''
+      + '<line x1="-50" y1="0" x2="0" y2="0" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-40" x2="0" y2="40" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="-14" x2="50" y2="-50" ' + s + ' fill="none"/>'
+      + '<line x1="0" y1="12" x2="50" y2="50" ' + s + ' fill="none"/>'
+      + '<polygon points="13,21 -2,6 21,8" ' + p + '/>';
+  }
+  function tr2Symbol(c){
+    if(c.type === 'npntr2') return npnTr2Svg(c);
+    if(c.type === 'pnptr2') return pnpTr2Svg(c);
+    return '';
+  }
+
+  if(typeof DEFS !== 'undefined'){
+    Object.assign(DEFS, {
+      npntr2:{name:'NPNtr2', w:100, h:100, terms:TR2_TERMS.npntr2, defVal:'', pre:'Q'},
+      pnptr2:{name:'PNPTr2', w:100, h:100, terms:TR2_TERMS.pnptr2, defVal:'', pre:'Q'}
+    });
+  }
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      var hadNoSize = isTargetType(type) && (opts.size == null || opts.__callerHadNoSize === true);
+      if(isTargetType(type)){
+        opts = Object.assign({}, opts, {
+          size: hadNoSize ? defaultSize(type) : clamp(opts.size, defaultSize(type)),
+          strokeDash: opts.strokeDash || 'solid',
+          __callerHadNoSize: undefined
+        });
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      if(isTargetComp(c)) normalize(c, hadNoSize);
+      return c;
+    };
+  }
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(TR2[type]){
+      var ds = defaultSize(type);
+      var c = {type:type, color:color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:ds, strokeDash:'solid'};
+      return '<g transform="scale(' + ds + ')">' + tr2Symbol(c) + '</g>';
+    }
+    return prevCompSVG ? prevCompSVG.call(this, type, color) : '';
+  };
+
+  var prevGetTerms = window.getTerms || (typeof getTerms === 'function' ? getTerms : null);
+  window.getTerms = getTerms = function(c){
+    if(isTr2Comp(c)){
+      normalize(c, false);
+      var terms = TR2_TERMS[c.type] || [];
+      var sz = sizeOf(c);
+      return terms.map(function(t){
+        var tx = (c.flip ? -t.x : t.x) * sz;
+        var ty = t.y * sz;
+        var a = ((c.rotation || 0) * Math.PI) / 180;
+        var rx = tx * Math.cos(a) - ty * Math.sin(a);
+        var ry = tx * Math.sin(a) + ty * Math.cos(a);
+        return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+      });
+    }
+    return prevGetTerms ? prevGetTerms.call(this, c) : [];
+  };
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  window.renderComp = renderComp = function(c){
+    if(!isTr2Comp(c)) return prevRenderComp ? prevRenderComp.call(this, c) : document.createElementNS(SVGNS, 'g');
+    normalize(c, false);
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (typeof tool !== 'undefined' && (tool === 'wire' || tool === 'jumpwire')) ? 'crosshair' : 'pointer';
+
+    var sz = sizeOf(c), sx = c.flip ? -sz : sz;
+    var symbolG = document.createElementNS(SVGNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')');
+    symbolG.innerHTML = tr2Symbol(c);
+
+    if(typeof selectedIds !== 'undefined' && selectedIds.has(c.id)){
+      var sel = document.createElementNS(SVGNS, 'rect');
+      sel.setAttribute('x', -64); sel.setAttribute('y', -64);
+      sel.setAttribute('width', 128); sel.setAttribute('height', 128);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    (TR2_TERMS[c.type] || []).forEach(function(t){
+      var termWorld = (getTerms(c).find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y});
+      var dot = document.createElementNS(SVGNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(typeof tool !== 'undefined' && (tool === 'wire' || tool === 'jumpwire')) dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(SVGNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(SVGNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-(50 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(SVGNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String(50 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Segoe UI',Arial,sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if((typeof placingType !== 'undefined' && placingType) || (typeof placingShape !== 'undefined' && placingShape)) return;
+      if(typeof tool !== 'undefined' && tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(!isTr2Comp(c)) return prevComponentToSVG ? prevComponentToSVG.call(this, c) : '';
+    normalize(c, false);
+    var sz = sizeOf(c), sx = c.flip ? -sz : sz;
+    var out = '<g transform="translate(' + c.x + ',' + c.y + ') rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + tr2Symbol(c) + '</g>';
+    if(c.ref) out += '<text x="' + c.x + '" y="' + (c.y - (50 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="\'Yu Gothic\',\'YuGothic\',\'Meiryo\',sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) out += '<text x="' + c.x + '" y="' + (c.y + (50 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="\'Yu Gothic\',\'YuGothic\',\'Meiryo\',sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return out;
+  };
+
+  function isComponentId(id){
+    return typeof id === 'string' && id.indexOf('math:') !== 0 && id.indexOf('shape:') !== 0 && id.indexOf('junction:') !== 0 && id.indexOf('wire:') !== 0;
+  }
+  function selectedTargetComponents(){
+    var ids = window.selectedIds || (typeof selectedIds !== 'undefined' ? selectedIds : null);
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(!ids || !Array.isArray(list)) return [];
+    return Array.from(ids).filter(isComponentId).map(function(id){
+      return list.find(function(c){ return c.id === id; });
+    }).filter(function(c){ return isTargetComp(c); });
+  }
+  function reconnectFromOldTerms(comps, oldTerms){
+    var wireList = window.wires || (typeof wires !== 'undefined' ? wires : []);
+    if(!Array.isArray(wireList) || typeof getTerms !== 'function') return;
+    comps.forEach(function(c){
+      var oldT = oldTerms[c.id] || [];
+      var newT = getTerms(c);
+      oldT.forEach(function(ot){
+        var nt = newT.find(function(t){ return t.id === ot.id; });
+        if(!nt) return;
+        wireList.forEach(function(w){
+          if(Math.abs(w.x1 - ot.x) < 2.5 && Math.abs(w.y1 - ot.y) < 2.5){ w.x1 = nt.x; w.y1 = nt.y; }
+          if(Math.abs(w.x2 - ot.x) < 2.5 && Math.abs(w.y2 - ot.y) < 2.5){ w.x2 = nt.x; w.y2 = nt.y; }
+        });
+      });
+    });
+  }
+
+  var prevSetComponentSize = window.setComponentSize || (typeof setComponentSize === 'function' ? setComponentSize : null);
+  window.setComponentSize = setComponentSize = function(v){
+    var comps = selectedTargetComponents();
+    if(!comps.length) return prevSetComponentSize ? prevSetComponentSize.apply(this, arguments) : undefined;
+    var target = clamp(v, sizeOf(comps[0]));
+    if(!comps.some(function(c){ return Math.abs(sizeOf(c) - target) > 0.001; })) return;
+
+    if(typeof saveState === 'function') saveState();
+    var oldTerms = {};
+    if(typeof getTerms === 'function') comps.forEach(function(c){ oldTerms[c.id] = getTerms(c).map(function(t){ return Object.assign({}, t); }); });
+    comps.forEach(function(c){ c.size = target; if(!c.strokeDash) c.strokeDash = 'solid'; });
+    reconnectFromOldTerms(comps, oldTerms);
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof runChecks === 'function') runChecks();
+
+    var body = document.getElementById('prop-body');
+    var focused = document.activeElement;
+    if(body){
+      var inputs = body.querySelectorAll('input[type="number"]');
+      inputs.forEach(function(input){
+        input.setAttribute('min', String(MIN_SIZE));
+        input.setAttribute('max', String(MAX_SIZE));
+        input.setAttribute('step', '0.05');
+        if(focused !== input) input.value = String(target);
+      });
+    }
+  };
+
+  var prevShowProps = window.showProps || (typeof showProps === 'function' ? showProps : null);
+  if(typeof prevShowProps === 'function'){
+    window.showProps = showProps = function(){
+      var out = prevShowProps.apply(this, arguments);
+      try{
+        var comps = selectedTargetComponents();
+        if(comps.length){
+          var body = document.getElementById('prop-body');
+          if(body){
+            body.querySelectorAll('input[type="number"]').forEach(function(input){
+              input.setAttribute('min', String(MIN_SIZE));
+              input.setAttribute('max', String(MAX_SIZE));
+              input.setAttribute('step', '0.05');
+              input.setAttribute('inputmode', 'decimal');
+            });
+          }
+        }
+      }catch(e){}
+      return out;
+    };
+  }
+
+  function setPaletteIcon(id, type, viewBox){
+    var item = document.getElementById(id);
+    if(!item) return;
+    item.setAttribute('onclick', "startPlace('" + type + "')");
+    var old = item.querySelector('svg.pal-icon');
+    if(old && typeof compSVG === 'function') old.outerHTML = '<svg class="pal-icon" viewBox="' + viewBox + '">' + compSVG(type, '#333') + '</svg>';
+  }
+
+  try{
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    if(Array.isArray(list)) list.forEach(function(c){ normalize(c, false); });
+    setPaletteIcon('pal-npntr2', 'npntr2', '-24 -24 50 48');
+    setPaletteIcon('pal-pnptr2', 'pnptr2', '-24 -24 50 48');
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('TR2/MOS2 final size input grid patch failed', e); }
+})();
+</script>
+
 </body>
 </html>
