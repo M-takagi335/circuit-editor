@@ -336,6 +336,10 @@ body:not(.palette-closed) #palette-toggle .palette-toggle-text::after{content:'�
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="9" y2="14" stroke="#333" stroke-width="1.5"/><rect x="9" y="8" width="22" height="12" rx="1" fill="none" stroke="#333" stroke-width="1.5"/><line x1="31" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
         <span class="pal-name">抵抗 <span style="font-size:9px;color:#aaa;font-weight:600">[R]</span></span>
       </div>
+      <div class="pal-item" id="pal-resistor2" onclick="startPlace('resistor2')" title="ジグザグ抵抗">
+        <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="8" y2="14" stroke="#333" stroke-width="1.5"/><polyline points="8,14 12,8 16,20 20,8 24,20 28,8 32,14" fill="none" stroke="#333" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><line x1="32" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
+        <span class="pal-name">抵抗2</span>
+      </div>
       <div class="pal-item" id="pal-capacitor" onclick="startPlace('capacitor')" title="ショートカット: C">
         <svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="17" y2="14" stroke="#333" stroke-width="1.5"/><line x1="17" y1="6" x2="17" y2="22" stroke="#333" stroke-width="2"/><line x1="23" y1="6" x2="23" y2="22" stroke="#333" stroke-width="2"/><line x1="23" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg>
         <span class="pal-name">コンデンサ <span style="font-size:9px;color:#aaa;font-weight:600">[C]</span></span>
@@ -15737,7 +15741,7 @@ renderAll();showProps();
       + '<line x1="0" y1="-40" x2="0" y2="40" ' + s + ' fill="none"/>'
       + '<line x1="0" y1="-14" x2="50" y2="-50" ' + s + ' fill="none"/>'
       + '<line x1="0" y1="12" x2="50" y2="50" ' + s + ' fill="none"/>'
-      + '<polygon points="13,21 -2,6 21,8" ' + p + '/>';
+      + '<polygon points="13,-29 -2,-14 21,-16" ' + p + '/>';
   }
   function tr2Symbol(c){
     if(c.type === 'npntr2') return npnTr2Svg(c);
@@ -15992,6 +15996,452 @@ renderAll();showProps();
     if(typeof showProps === 'function') showProps();
     if(typeof runChecks === 'function') runChecks();
   }catch(e){ console.error('TR2/MOS2 final size input grid patch failed', e); }
+})();
+</script>
+
+
+
+<script id="junction-size-input-final-fix">
+(function(){
+  'use strict';
+
+  var DEFAULT_RADIUS = 4;
+  var MIN_RADIUS = 1;
+  var MAX_RADIUS = 40;
+
+  function selectedJunction(){
+    if(typeof selectedIds === 'undefined' || !selectedIds || selectedIds.size !== 1) return null;
+    var id = Array.from(selectedIds)[0];
+    if(typeof id !== 'string' || !id.startsWith('junction:')) return null;
+    if(typeof junctions === 'undefined' || !Array.isArray(junctions)) return null;
+    return junctions.find(function(j){ return j && j.id === id.slice(9); }) || null;
+  }
+
+  function radiusOf(j){
+    var r = Number(j && j.radius);
+    return Number.isFinite(r) && r > 0 ? r : DEFAULT_RADIUS;
+  }
+
+  function clampRadius(v){
+    var n = Number.parseFloat(String(v).replace(',', '.'));
+    if(!Number.isFinite(n)) return null;
+    return Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, n));
+  }
+
+  function renderNow(){
+    if(typeof window.renderAllImmediate === 'function') window.renderAllImmediate();
+    else if(typeof renderAll === 'function') renderAll();
+  }
+
+  function normalizeRadiusInput(){
+    var inp = document.querySelector('#prop-body input[data-junction-radius="1"]');
+    var j = selectedJunction();
+    if(inp && j) inp.value = String(radiusOf(j));
+  }
+
+  // 結線点のサイズ入力では、入力中の「4.」「0.」などを勝手に書き戻さない。
+  // これにより小数・削除・再入力が途中で潰れず、スマホでも入力しやすくなる。
+  window.setJunctionProp = setJunctionProp = function(key, val){
+    var j = selectedJunction();
+    if(!j) return;
+
+    if(key === 'radius'){
+      var r = clampRadius(val);
+      if(r === null) return;
+      if(j.radius !== r){
+        j.radius = r;
+        renderNow();
+        if(typeof runChecks === 'function') runChecks();
+      }
+      return;
+    }
+
+    if(key === 'color'){
+      j.color = val || (typeof currentColor !== 'undefined' ? currentColor : '#6b7280');
+      renderNow();
+      if(typeof runChecks === 'function') runChecks();
+      return;
+    }
+
+    j[key] = val;
+    renderNow();
+    if(typeof runChecks === 'function') runChecks();
+  };
+
+  var previousShowProps = window.showProps || showProps;
+  window.showProps = showProps = function(){
+    var j = selectedJunction();
+    if(j){
+      var title = document.getElementById('prop-title');
+      var sub = document.getElementById('prop-sub');
+      var body = document.getElementById('prop-body');
+      if(title) title.textContent = '結線点';
+      if(sub) sub.textContent = 'X:' + Math.round(j.x) + ' / Y:' + Math.round(j.y);
+      if(body){
+        body.innerHTML = ''
+          + '<div class="prop-field"><label class="prop-label">色</label>'
+          + '<input class="prop-input" type="color" value="' + (j.color || (typeof currentColor !== 'undefined' ? currentColor : '#6b7280')) + '" oninput="setJunctionProp(\'color\',this.value)"></div>'
+          + '<div class="prop-field"><label class="prop-label">大きさ（半径）</label>'
+          + '<input class="prop-input" type="number" min="1" max="40" step="0.5" inputmode="decimal" data-junction-radius="1" value="' + radiusOf(j) + '" '
+          + 'oninput="setJunctionProp(\'radius\',this.value)" '
+          + 'onchange="setJunctionProp(\'radius\',this.value); this.value=(function(v){var n=parseFloat(String(v).replace(\',\',\'.\')); if(!isFinite(n)) n=4; return Math.max(1,Math.min(40,n));})(this.value)"></div>'
+          + '<button class="prop-btn danger" onclick="deleteSelected()">🗑 削除</button>';
+        var inp = body.querySelector('input[data-junction-radius="1"]');
+        if(inp){
+          inp.addEventListener('blur', normalizeRadiusInput);
+          inp.addEventListener('keydown', function(e){
+            if(e.key === 'Enter'){
+              setJunctionProp('radius', inp.value);
+              normalizeRadiusInput();
+              inp.blur();
+            }
+          });
+        }
+      }
+      return;
+    }
+    if(typeof previousShowProps === 'function') previousShowProps.apply(this, arguments);
+  };
+
+  // 既存データ・読込データに radius が無い場合も既定値を補う。
+  function ensureJunctionRadii(){
+    if(typeof junctions === 'undefined' || !Array.isArray(junctions)) return;
+    junctions.forEach(function(j){ if(j && !(Number(j.radius) > 0)) j.radius = DEFAULT_RADIUS; });
+  }
+
+  var previousRenderAll = window.renderAll || renderAll;
+  window.renderAll = renderAll = function(){
+    ensureJunctionRadii();
+    if(typeof previousRenderAll === 'function') previousRenderAll.apply(this, arguments);
+  };
+
+  var previousRenderImmediate = window.renderAllImmediate;
+  window.renderAllImmediate = function(){
+    ensureJunctionRadii();
+    if(typeof previousRenderImmediate === 'function') previousRenderImmediate.apply(this, arguments);
+    else if(typeof previousRenderAll === 'function') previousRenderAll.apply(this, arguments);
+  };
+
+  ensureJunctionRadii();
+})();
+</script>
+
+
+
+<script id="resistor2-zigzag-final-20260619">
+// 抵抗2: ジグザグ抵抗を既存素子と同じサイズ変更・線幅一括変更の仕組みに統合する。
+(function(){
+  if(window.__resistor2ZigzagFinal20260619) return;
+  window.__resistor2ZigzagFinal20260619 = true;
+
+  var TYPE = 'resistor2';
+  var DEFAULT_COLOR = '#6b7280';
+  var MIN_SIZE = 0.45;
+  var MAX_SIZE = 2.4;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : 1, MIN_SIZE, MAX_SIZE); }
+  function colorOf(c, fallback){ return (c && c.color) || fallback || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR; }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function dashArray(style){
+    if(style === 'dotted') return '1 4';
+    if(style === 'dashed') return '8 4';
+    return '';
+  }
+  function strokeAttrs(c, color){
+    var sz = compSize(c);
+    var dash = dashArray(c && c.strokeDash);
+    return 'stroke="' + esc(colorOf(c, color)) + '" stroke-width="' + (lineWidth() / sz) + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+  function resistor2Symbol(c, color){
+    var s = strokeAttrs(c, color);
+    return ''
+      + '<line x1="-35" y1="0" x2="-24" y2="0" ' + s + ' fill="none"/>'
+      + '<polyline points="-24,0 -18,-8 -12,8 -6,-8 0,8 6,-8 12,8 18,-8 24,0" ' + s + ' fill="none"/>'
+      + '<line x1="24" y1="0" x2="35" y2="0" ' + s + ' fill="none"/>';
+  }
+  function normalize(c){
+    if(!c || c.type !== TYPE) return;
+    if(c.size == null) c.size = 1;
+    else c.size = compSize(c);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+  function componentList(){
+    var list = window.components || (typeof components !== 'undefined' ? components : []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  if(typeof DEFS !== 'undefined'){
+    DEFS[TYPE] = {name:'抵抗2', w:70, h:24, terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}], defVal:'', pre:'R'};
+  }
+
+  function ensurePalette(){
+    var base = document.getElementById('pal-resistor');
+    if(!base || document.getElementById('pal-resistor2')) return;
+    var item = document.createElement('div');
+    item.className = 'pal-item';
+    item.id = 'pal-resistor2';
+    item.title = 'ジグザグ抵抗';
+    item.setAttribute('onclick', "startPlace('resistor2')");
+    item.innerHTML = '<svg class="pal-icon" viewBox="0 0 40 28"><line x1="2" y1="14" x2="8" y2="14" stroke="#333" stroke-width="1.5"/><polyline points="8,14 12,8 16,20 20,8 24,20 28,8 32,14" fill="none" stroke="#333" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><line x1="32" y1="14" x2="38" y2="14" stroke="#333" stroke-width="1.5"/></svg><span class="pal-name">抵抗2</span>';
+    base.insertAdjacentElement('afterend', item);
+  }
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(type === TYPE) return resistor2Symbol({type:TYPE, color:color || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR), size:1, strokeDash:'solid'}, color);
+    return prevCompSVG ? prevCompSVG.call(this, type, color) : '';
+  };
+
+  var prevAddComp = window.addComp || (typeof addComp === 'function' ? addComp : null);
+  if(typeof prevAddComp === 'function'){
+    window.addComp = addComp = function(type, x, y, opts){
+      opts = opts || {};
+      if(type === TYPE){
+        opts = Object.assign({}, opts, {size: opts.size == null ? 1 : compSize({size:opts.size}), strokeDash: opts.strokeDash || 'solid'});
+      }
+      var c = prevAddComp.call(this, type, x, y, opts);
+      normalize(c);
+      return c;
+    };
+  }
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  if(typeof prevComponentToSVG === 'function'){
+    window.componentToSVG = componentToSVG = function(c){
+      if(!c || c.type !== TYPE) return prevComponentToSVG.call(this, c);
+      normalize(c);
+      var sz = compSize(c), sx = c.flip ? -sz : sz;
+      var out = '<g transform="translate(' + c.x + ',' + c.y + ') rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + resistor2Symbol(c) + '</g>';
+      if(c.ref) out += '<text x="' + c.x + '" y="' + (c.y - ((DEFS[TYPE].h || 24) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="\'Yu Gothic\',\'YuGothic\',\'Meiryo\',sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+      if(c.value) out += '<text x="' + c.x + '" y="' + (c.y + ((DEFS[TYPE].h || 24) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="\'Yu Gothic\',\'YuGothic\',\'Meiryo\',sans-serif" fill="#555">' + esc(c.value) + '</text>';
+      return out;
+    };
+  }
+
+  var prevSetCircuitLineWidth = window.setCircuitLineWidth || (typeof setCircuitLineWidth === 'function' ? setCircuitLineWidth : null);
+  if(typeof prevSetCircuitLineWidth === 'function'){
+    window.setCircuitLineWidth = setCircuitLineWidth = function(value, skipSaveState){
+      var r = prevSetCircuitLineWidth.apply(this, arguments);
+      componentList().forEach(normalize);
+      if(typeof renderAll === 'function') renderAll();
+      return r;
+    };
+  }
+
+  try{
+    ensurePalette();
+    componentList().forEach(normalize);
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('resistor2 zigzag patch failed', e); }
+})();
+</script>
+
+
+<script id="resistor2-placed-render-fix-20260619">
+// 抵抗2: 配置後の描画が旧フォールバック（四角形）に流れないよう、renderComp も明示的に差し替える。
+(function(){
+  if(window.__resistor2PlacedRenderFix20260619) return;
+  window.__resistor2PlacedRenderFix20260619 = true;
+
+  var TYPE = 'resistor2';
+  var DEFAULT_COLOR = '#6b7280';
+  var MIN_SIZE = 0.45;
+  var MAX_SIZE = 2.4;
+
+  function clamp(v, min, max){
+    v = Number(v);
+    if(!Number.isFinite(v)) return min;
+    return Math.max(min, Math.min(max, v));
+  }
+  function lineWidth(){
+    if(typeof window.getCircuitLineWidth === 'function') return clamp(window.getCircuitLineWidth(), 0.5, 10);
+    return clamp(window.circuitLineWidth || 1.6, 0.5, 10);
+  }
+  function compSize(c){ return clamp(c && c.size != null ? c.size : 1, MIN_SIZE, MAX_SIZE); }
+  function colorOf(c, fallback){
+    return (c && c.color) || fallback || (typeof currentColor !== 'undefined' ? currentColor : DEFAULT_COLOR) || DEFAULT_COLOR;
+  }
+  function esc(s){
+    if(typeof window.exportEscape === 'function') return window.exportEscape(s == null ? '' : String(s));
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; });
+  }
+  function dashArray(style){
+    if(style === 'dotted') return '1 4';
+    if(style === 'dashed') return '8 4';
+    return '';
+  }
+  function strokeAttrs(c, color){
+    var sz = compSize(c);
+    var dash = dashArray(c && c.strokeDash);
+    return 'stroke="' + esc(colorOf(c, color)) + '" stroke-width="' + (lineWidth() / sz) + '" stroke-linecap="round" stroke-linejoin="round"' + (dash ? ' stroke-dasharray="' + dash + '"' : '');
+  }
+  function resistor2Symbol(c, color){
+    var s = strokeAttrs(c, color);
+    return ''
+      + '<line x1="-35" y1="0" x2="-24" y2="0" ' + s + ' fill="none"/>'
+      + '<polyline points="-24,0 -18,-8 -12,8 -6,-8 0,8 6,-8 12,8 18,-8 24,0" ' + s + ' fill="none"/>'
+      + '<line x1="24" y1="0" x2="35" y2="0" ' + s + ' fill="none"/>';
+  }
+  function normalize(c){
+    if(!c || c.type !== TYPE) return;
+    if(c.size == null) c.size = 1;
+    else c.size = compSize(c);
+    if(!c.strokeDash) c.strokeDash = 'solid';
+  }
+  function termsFor(c){
+    var def = DEFS && DEFS[TYPE] ? DEFS[TYPE] : {terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}]};
+    var sz = compSize(c);
+    return def.terms.map(function(t){
+      var tx = (c.flip ? -t.x : t.x) * sz;
+      var ty = t.y * sz;
+      var a = (c.rotation || 0) * Math.PI / 180;
+      var rx = tx * Math.cos(a) - ty * Math.sin(a);
+      var ry = tx * Math.sin(a) + ty * Math.cos(a);
+      return {id:t.id, x:snap(c.x + rx), y:snap(c.y + ry)};
+    });
+  }
+
+  if(typeof DEFS !== 'undefined'){
+    DEFS[TYPE] = {name:'抵抗2', w:70, h:24, terms:[{x:-35,y:0,id:'A'},{x:35,y:0,id:'B'}], defVal:'', pre:'R'};
+  }
+
+  var prevCompSVG = window.compSVG || (typeof compSVG === 'function' ? compSVG : null);
+  window.compSVG = compSVG = function(type, color){
+    if(type === TYPE) return resistor2Symbol({type:TYPE, color:color || colorOf(null), size:1, strokeDash:'solid'}, color);
+    return prevCompSVG ? prevCompSVG.call(this, type, color) : '';
+  };
+
+  var prevGetTerms = window.getTerms || (typeof getTerms === 'function' ? getTerms : null);
+  window.getTerms = getTerms = function(c){
+    if(c && c.type === TYPE){ normalize(c); return termsFor(c); }
+    return prevGetTerms ? prevGetTerms.call(this, c) : [];
+  };
+
+  var prevRenderComp = window.renderComp || (typeof renderComp === 'function' ? renderComp : null);
+  window.renderComp = renderComp = function(c){
+    if(!c || c.type !== TYPE) return prevRenderComp ? prevRenderComp.call(this, c) : document.createElementNS('http://www.w3.org/2000/svg','g');
+    normalize(c);
+    var svgNS = (typeof SVGNS !== 'undefined') ? SVGNS : 'http://www.w3.org/2000/svg';
+    var def = DEFS[TYPE];
+    var sz = compSize(c);
+    var scaleX = c.flip ? -sz : sz;
+    var g = document.createElementNS(svgNS, 'g');
+    g.setAttribute('transform', 'translate(' + c.x + ',' + c.y + ')');
+    g.setAttribute('data-id', c.id);
+    g.style.cursor = (tool === 'wire' || tool === 'jumpwire') ? 'crosshair' : 'pointer';
+
+    var symbolG = document.createElementNS(svgNS, 'g');
+    symbolG.setAttribute('transform', 'rotate(' + (c.rotation || 0) + ') scale(' + scaleX + ',' + sz + ')');
+    symbolG.innerHTML = resistor2Symbol(c);
+
+    if(selectedIds && selectedIds.has(c.id)){
+      var hw = Math.max((def.w || 70) / 2, 25) + 14;
+      var hh = Math.max((def.h || 24) / 2, 15) + 14;
+      var sel = document.createElementNS(svgNS, 'rect');
+      sel.setAttribute('x', -hw); sel.setAttribute('y', -hh);
+      sel.setAttribute('width', hw * 2); sel.setAttribute('height', hh * 2);
+      sel.setAttribute('fill', 'rgba(59,130,246,.07)');
+      sel.setAttribute('stroke', '#3b82f6');
+      sel.setAttribute('stroke-width', String(Math.max(0.8, 1.2 / sz)));
+      sel.setAttribute('stroke-dasharray', '5 3');
+      sel.setAttribute('rx', '5');
+      symbolG.insertBefore(sel, symbolG.firstChild);
+    }
+
+    var tWorld = termsFor(c);
+    def.terms.forEach(function(t){
+      var termWorld = tWorld.find(function(tt){ return tt.id === t.id; }) || {x:c.x,y:c.y};
+      var dot = document.createElementNS(svgNS, 'circle');
+      dot.setAttribute('cx', t.x); dot.setAttribute('cy', t.y);
+      dot.setAttribute('r', String(Math.max(5, 11 / sz)));
+      dot.setAttribute('fill', 'transparent');
+      dot.setAttribute('class', 'term-hit');
+      dot.setAttribute('data-cid', c.id);
+      dot.setAttribute('data-tid', t.id);
+      dot.setAttribute('data-tx', termWorld.x);
+      dot.setAttribute('data-ty', termWorld.y);
+      if(tool === 'wire' || tool === 'jumpwire') dot.style.cursor = 'crosshair';
+      symbolG.appendChild(dot);
+    });
+    g.appendChild(symbolG);
+
+    var labelG = document.createElementNS(svgNS, 'g');
+    if(c.ref){
+      var rt = document.createElementNS(svgNS, 'text');
+      rt.setAttribute('x','0'); rt.setAttribute('y', String(-((def.h || 24) / 2 * sz + 12)));
+      rt.setAttribute('text-anchor','middle'); rt.setAttribute('font-size','11');
+      rt.setAttribute('font-family', "'Yu Gothic','YuGothic','Meiryo',sans-serif");
+      rt.setAttribute('fill','#111'); rt.setAttribute('font-weight','600');
+      rt.textContent = c.ref; labelG.appendChild(rt);
+    }
+    if(c.value){
+      var vt = document.createElementNS(svgNS, 'text');
+      vt.setAttribute('x','0'); vt.setAttribute('y', String((def.h || 24) / 2 * sz + 14));
+      vt.setAttribute('text-anchor','middle'); vt.setAttribute('font-size','10');
+      vt.setAttribute('font-family', "'Yu Gothic','YuGothic','Meiryo',sans-serif");
+      vt.setAttribute('fill','#555');
+      vt.textContent = c.value; labelG.appendChild(vt);
+    }
+    g.appendChild(labelG);
+
+    g.addEventListener('mousedown', function(e){
+      if(placingType || placingShape) return;
+      if(tool === 'select'){
+        e.stopPropagation();
+        selectedWireId = null;
+        if(!selectedIds.has(c.id)){
+          if(!e.shiftKey) selectedIds.clear();
+          selectedIds.add(c.id);
+          renderAll(); showProps();
+        }else if(e.shiftKey){
+          selectedIds.delete(c.id);
+          renderAll(); showProps();
+          return;
+        }
+        var pt = svgPt(e);
+        saveState();
+        dragging = {startPt:pt, origPositions:{}};
+        components.forEach(function(comp){ if(selectedIds.has(comp.id)) dragging.origPositions[comp.id] = {x:comp.x, y:comp.y}; });
+        if(typeof shapes !== 'undefined') shapes.forEach(function(sh){ if(selectedIds.has('shape:' + sh.id)) dragging.origPositions['shape:' + sh.id] = {x:sh.x, y:sh.y}; });
+        if(typeof mathLabels !== 'undefined') mathLabels.forEach(function(m){ if(selectedIds.has('math:' + m.id)) dragging.origPositions['math:' + m.id] = {x:m.x, y:m.y}; });
+        if(typeof junctions !== 'undefined') junctions.forEach(function(j){ if(selectedIds.has('junction:' + j.id)) dragging.origPositions['junction:' + j.id] = {x:j.x, y:j.y}; });
+        dragMoved = false;
+      }
+    });
+    return g;
+  };
+
+  var prevComponentToSVG = window.componentToSVG || (typeof componentToSVG === 'function' ? componentToSVG : null);
+  window.componentToSVG = componentToSVG = function(c){
+    if(!c || c.type !== TYPE) return prevComponentToSVG ? prevComponentToSVG.call(this, c) : '';
+    normalize(c);
+    var sz = compSize(c), sx = c.flip ? -sz : sz, def = DEFS[TYPE];
+    var out = '<g transform="translate(' + c.x + ',' + c.y + ')"><g transform="rotate(' + (c.rotation || 0) + ') scale(' + sx + ',' + sz + ')">' + resistor2Symbol(c) + '</g>';
+    if(c.ref) out += '<text x="0" y="' + (-((def.h || 24) / 2 * sz + 12)) + '" text-anchor="middle" font-size="11" font-family="Yu Gothic,YuGothic,Meiryo,sans-serif" fill="#111" font-weight="600">' + esc(c.ref) + '</text>';
+    if(c.value) out += '<text x="0" y="' + (((def.h || 24) / 2 * sz + 14)) + '" text-anchor="middle" font-size="10" font-family="Yu Gothic,YuGothic,Meiryo,sans-serif" fill="#555">' + esc(c.value) + '</text>';
+    return out + '</g>';
+  };
+
+  try{
+    if(typeof components !== 'undefined' && Array.isArray(components)) components.forEach(normalize);
+    if(typeof renderAll === 'function') renderAll();
+    if(typeof showProps === 'function') showProps();
+    if(typeof runChecks === 'function') runChecks();
+  }catch(e){ console.error('resistor2 placed render fix failed', e); }
 })();
 </script>
 
